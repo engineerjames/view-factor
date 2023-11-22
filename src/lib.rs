@@ -1,28 +1,36 @@
+use num::Float;
+
 #[derive(Debug)]
-pub struct Point {
-    pub x: f32,
-    pub y: f32,
+pub struct Point<T: num::Float> {
+    pub x: T,
+    pub y: T,
 }
 
 #[derive(Debug)]
-pub struct Line {
-    pub points: [Point; 2],
+pub struct Line<T: num::Float> {
+    pub points: [Point<T>; 2],
 }
 
-impl Point {
-    pub fn new((x1, y1): (f32, f32)) -> Point {
+impl<T> Point<T>
+where
+    T: Float,
+{
+    pub fn new((x1, y1): (T, T)) -> Point<T> {
         Point { x: x1, y: y1 }
     }
 }
 
-impl Line {
-    pub fn length(&self) -> f32 {
-        return ((self.points[0].x - self.points[1].x).powf(2.0)
-            + (self.points[0].y - self.points[1].y).powf(2.0))
-        .sqrt();
+impl<T> Line<T>
+where
+    T: Float,
+{
+    pub fn length(&self) -> T {
+        return (((self.points[0].x - self.points[1].x) * (self.points[0].x - self.points[1].x))
+            + ((self.points[0].y - self.points[1].y) * (self.points[0].y - self.points[1].y)))
+            .sqrt();
     }
 
-    pub fn new((x1, y1): (f32, f32), (x2, y2): (f32, f32)) -> Line {
+    pub fn new((x1, y1): (T, T), (x2, y2): (T, T)) -> Line<T> {
         Line {
             points: [Point::new((x1, y1)), Point::new((x2, y2))],
         }
