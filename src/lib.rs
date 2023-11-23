@@ -1,5 +1,42 @@
 use num::Float;
 
+mod simulation;
+
+use simulation::view_factor_sim::EmissiveShape;
+
+pub struct EmissiveLine<T: Float> {
+    pub line: Line2D<T>,
+    name: String,
+    selected_normal_index: i32,
+}
+
+impl<T> EmissiveShape<T> for EmissiveLine<T>
+where
+    T: Float,
+{
+    fn get_normal(&self) -> [Point2D<T>; 2] {
+        let dx = self.line.points[1].x - self.line.points[0].x;
+        let dy = self.line.points[1].y - self.line.points[0].y;
+
+        return [Point2D::new((-dy, dx)), Point2D::new((dy, -dx))];
+    }
+
+    fn set_normal(&mut self, i: u32) {
+        if i != 0 && i != 1 {
+            panic!("Invalid index for normal of a line.  There are only two valid solutions (index={})", i);
+        }
+        todo!()
+    }
+
+    fn set_name(&mut self, name: String) {
+        todo!()
+    }
+
+    fn get_name(&self) -> String {
+        todo!()
+    }
+}
+
 #[derive(Debug)]
 pub struct Point2D<T: num::Float> {
     pub x: T,
@@ -41,6 +78,15 @@ where
             length: (((x1 - x2) * (x1 - x2)) + ((y1 - y2) * (y1 - y2))).sqrt(),
         }
     }
+
+    // TODO: Implement this
+    // pub fn new_with_r_theta((x1, y1): (T, T), theta: T, r: T) -> Line2D<T> {
+    //     Line2D {
+    //         points: (),
+    //         angle: theta,
+    //         length: r,
+    //     }
+    // }
 }
 
 #[cfg(test)]
