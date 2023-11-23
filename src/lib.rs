@@ -1,26 +1,26 @@
 use num::Float;
 
 #[derive(Debug)]
-pub struct Point<T: num::Float> {
+pub struct Point2D<T: num::Float> {
     pub x: T,
     pub y: T,
 }
 
 #[derive(Debug)]
-pub struct Line<T: num::Float> {
-    pub points: [Point<T>; 2],
+pub struct Line2D<T: num::Float> {
+    pub points: [Point2D<T>; 2],
 }
 
-impl<T> Point<T>
+impl<T> Point2D<T>
 where
     T: Float,
 {
-    pub fn new((x1, y1): (T, T)) -> Point<T> {
-        Point { x: x1, y: y1 }
+    pub fn new((x1, y1): (T, T)) -> Point2D<T> {
+        Point2D { x: x1, y: y1 }
     }
 }
 
-impl<T> Line<T>
+impl<T> Line2D<T>
 where
     T: Float,
 {
@@ -30,9 +30,9 @@ where
             .sqrt();
     }
 
-    pub fn new((x1, y1): (T, T), (x2, y2): (T, T)) -> Line<T> {
-        Line {
-            points: [Point::new((x1, y1)), Point::new((x2, y2))],
+    pub fn new((x1, y1): (T, T), (x2, y2): (T, T)) -> Line2D<T> {
+        Line2D {
+            points: [Point2D::new((x1, y1)), Point2D::new((x2, y2))],
         }
     }
 }
@@ -45,8 +45,8 @@ mod tests {
 
     #[test]
     fn test_length_calculation() {
-        let test_line = Line {
-            points: [Point { x: 0.0, y: -0.3 }, Point { x: 0.1, y: 0.2 }],
+        let test_line = Line2D {
+            points: [Point2D { x: 0.0, y: -0.3 }, Point2D { x: 0.1, y: 0.2 }],
         };
 
         assert!((test_line.length() - 0.50990194).abs() < EPSILON);
@@ -54,8 +54,8 @@ mod tests {
 
     #[test]
     fn test_equal_points_have_zero_length() {
-        let test_line = Line {
-            points: [Point { x: 0.0, y: -0.3 }, Point { x: 0.0, y: -0.3 }],
+        let test_line = Line2D {
+            points: [Point2D { x: 0.0, y: -0.3 }, Point2D { x: 0.0, y: -0.3 }],
         };
 
         assert!((test_line.length()) < EPSILON);
@@ -63,14 +63,14 @@ mod tests {
 
     #[test]
     fn test_length_calculation_alternative_construction() {
-        let test_line = Line::new((0.0, -0.3), (0.1, 0.2));
+        let test_line = Line2D::new((0.0, -0.3), (0.1, 0.2));
 
         assert!((test_line.length() - 0.50990194).abs() < EPSILON);
     }
 
     #[test]
     fn test_equal_points_have_zero_length_alternative_construction() {
-        let test_line = Line::new((0.0, -0.3), (0.0, -0.3));
+        let test_line = Line2D::new((0.0, -0.3), (0.0, -0.3));
 
         assert!((test_line.length()) < EPSILON);
     }
