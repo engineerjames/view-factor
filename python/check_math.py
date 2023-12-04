@@ -25,22 +25,31 @@ def do_segments_intersect(x : list[float], y : list[float]) -> bool:
 
 
 # Define your line segments
-x_segments = [[1, 4], [-2, -2]]
-y_segments = [[2, 6], [7, 4]]
+x_segments = [[1, 3], [-2, -2]]
+y_segments = [[2, 4], [7, 4]]
+
+x1 = x_segments[0][0]
+x2 = x_segments[0][1]
+
+y1 = y_segments[0][0]
+y2 = y_segments[0][1]
 
 # Plot each line segment
 for x_seg, y_seg in zip(x_segments, y_segments):
     plt.plot(x_seg, y_seg, marker='o')
 
 # Figure out normal vectors and plot them for one line segment
-dx = x_segments[0][1] - x_segments[0][0]
-dy = y_segments[0][1] - y_segments[0][0]
+dx = x2 - x1
+dy = y2 - y1
+
+midpoint = [(x1 + x2) / 2.0, (y1 + y2) / 2.0]
 
 norm_1 = [-dy, dx]
 norm_2 = [dy, -dx]
 
-plt.plot(norm_1[0], norm_1[1], marker='o', color='red')
-plt.plot(norm_2[0], norm_2[1], marker='o', color='green')
+plt.plot(norm_1[0]+midpoint[0], norm_1[1]+midpoint[1], marker='o', color='red')
+plt.plot(norm_2[0]+midpoint[0], norm_2[1]+midpoint[1], marker='o', color='green')
+plt.plot(0, 0, marker='o', color='black')
 
 second_line_pt1 = [x_segments[1][0], y_segments[1][0]]
 second_line_pt2 = [x_segments[1][1], y_segments[1][1]]
@@ -67,6 +76,11 @@ else:
 plt.xlabel('X-axis')
 plt.ylabel('Y-axis')
 plt.title('2D Line Segments')
+
+ax = plt.gca()
+plt.grid(True)
+ax.set_xlim([-10, 10])
+ax.set_ylim([-10, 10])
 
 # Show the plot
 plt.show()
