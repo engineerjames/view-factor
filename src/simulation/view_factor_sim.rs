@@ -1,16 +1,57 @@
-use num::Float;
 use crate::Point2D;
+use num::Float;
 
-pub trait EmissiveShape<T: Float> {
-    fn get_normal(&self) -> [Point2D<T>; 2];
-    fn set_normal(&mut self, i: u32);
+pub struct Line2DState {
+    normals: i32,
+}
 
-    fn set_name(&mut self, name: String);
-    fn get_name(&self) -> String;
+enum ShapeType {
+    Line2D(Line2DState),
+}
+
+pub struct EmissiveShape<T: Float> {
+    name: String,
+    shape_type: ShapeType,
+    id: u64,
+}
+
+impl<T> EmissiveShape<T>
+where
+    T: Float,
+{
+    fn new(name: String, shape_type: ShapeType, id: u64) -> EmissiveShape<T> {
+        EmissiveShape {
+            name: name,
+            shape_type: shape_type,
+            id: id,
+        }
+    }
 }
 
 pub struct SimulationParameters<T: Float> {
-    pub emitting_shapes: Vec<Box<dyn EmissiveShape<T>>>,
+    pub emitting_shapes: Vec<Box<EmissiveShape<T>>>,
     pub number_of_emissions: u64,
     pub random_seed: u64,
+    // TODO: Logger
+}
+
+impl<T> SimulationParameters<T>
+where
+    T: Float,
+{
+    fn new(num_emissions: u64, random_seed: u64) -> SimulationParameters<T> {
+        SimulationParameters {
+            emitting_shapes: Vec::new(),
+            number_of_emissions: num_emissions,
+            random_seed: random_seed,
+        }
+    }
+    // Instead of set_normals()
+    fn configure() {
+        todo!("Implement");
+    }
+
+    fn run() {
+        todo!("Implement");
+    }
 }
