@@ -1,15 +1,13 @@
-use view_factor::*;
-
 mod simulation;
 
-use simulation::view_factor_sim::SimulationParameters;
+use simulation::view_factor_sim::Simulation;
 
 // Just to going to start by hard-coding everything
 fn main() {
-    // Units are in meters
-    println!("Hello world");
+    // Eventually take in arguments from the command line or JSON file?
+    let sim: Simulation<f64> = Simulation::new(5000, None);
 
-    // let x = SimulationParameters{
-    //     x: 3,
-    // };
+    sim.configure();
+
+    sim.run();
 }
