@@ -17,6 +17,10 @@ pub fn unique_id() -> u64 {
     id
 }
 
+pub fn dot<T: Float>(a: &Point2D<T>, b: &Point2D<T>) -> T {
+    (a.x * b.x) + (a.y * b.y)
+}
+
 #[derive(Debug)]
 pub struct Point2D<T: num::Float> {
     pub x: T,
@@ -33,7 +37,7 @@ where
 }
 
 pub struct Line2DState<T: Float> {
-    normals: [Point2D<T>; 2],
+    pub normals: [Point2D<T>; 2],
     pub points: [Point2D<T>; 2], // Could use multiple constructors here eventually
 }
 
@@ -59,14 +63,21 @@ pub enum ShapeType<T: Float> {
     Line2D(Line2DState<T>), // Just one shape for now
 }
 
+// TODO: You just wrote this, need to plugin to check shape with others
+pub fn get_normals_from_shape<T: Float>(shape: &ShapeType<T>) -> [Point2D<T>; 2] {
+    match shape {
+        ShapeType::Line2D(line_state) => line_state.normals,
+    }
+}
+
 pub struct EmissiveShape<T: Float> {
-    name: String,
-    shape_type: ShapeType<T>,
-    id: u64,
+    pub name: String,
+    pub shape_type: ShapeType<T>,
+    pub id: u64,
     // Hash map between the normal index of the given shape, which maps
     // to a list of pair u64's.  Each pair signifies:
     // (target_shape_id, normal_index)
-    emits_to: HashMap<u64, Vec<(u64, u64)>>,
+    pub emits_to: HashMap<u64, Vec<(u64, u64)>>,
 }
 
 impl<T> EmissiveShape<T>
@@ -105,6 +116,26 @@ where
 
     pub fn add_shape(self: &mut Self, shape: Box<EmissiveShape<T>>) {
         self.emitting_shapes.push(shape);
+    }
+
+    // TODO: Come up with better name
+    fn check_shape_against_others(self: &Self, shape_to_check: &Box<EmissiveShape<T>>) {
+        for shape in &self.emitting_shapes {
+            if shape.id == shape_to_check.id {
+                continue;
+            }
+
+            let norms_to_check = get_normals_from_shape(&shape_to_check.shape_type);
+            let norms = get_normals_from_shape(&shape.shape_type);
+
+            for n_to_check in &norms_to_check {
+                for n in &norms {
+                    if Float::is_sign_positive(dot(n_to_check, n)) {
+                        // HIT TODO FILL THIS OUT
+                    }
+                }
+            }
+        }
     }
 
     pub fn configure(self: &Self) {
