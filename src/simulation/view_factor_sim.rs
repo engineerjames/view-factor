@@ -64,9 +64,9 @@ pub enum ShapeType<T: Float> {
 }
 
 // TODO: You just wrote this, need to plugin to check shape with others
-pub fn get_normals_from_shape<T: Float>(shape: &ShapeType<T>) -> [Point2D<T>; 2] {
+pub fn get_normals_from_shape<T: Float>(shape: &ShapeType<T>) -> &[Point2D<T>; 2] {
     match shape {
-        ShapeType::Line2D(line_state) => line_state.normals,
+        ShapeType::Line2D(line_state) => &line_state.normals,
     }
 }
 
@@ -128,10 +128,11 @@ where
             let norms_to_check = get_normals_from_shape(&shape_to_check.shape_type);
             let norms = get_normals_from_shape(&shape.shape_type);
 
-            for n_to_check in &norms_to_check {
-                for n in &norms {
+            for n_to_check in norms_to_check {
+                for n in norms {
                     if Float::is_sign_positive(dot(n_to_check, n)) {
                         // HIT TODO FILL THIS OUT
+                        println!("hit");
                     }
                 }
             }
@@ -139,14 +140,9 @@ where
     }
 
     pub fn configure(self: &Self) {
-        println!("{}", self.emitting_shapes.len());
-
         for shape in &self.emitting_shapes {
             println!("{}", shape.name);
-
-            // match shape.shape_type {
-            //     ShapeType::Line2D(line) => line.normals[0].x + 1.0,
-            // }
+            self.check_shape_against_others(shape);
         }
     }
 
