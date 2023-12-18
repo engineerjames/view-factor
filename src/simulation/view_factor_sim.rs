@@ -70,6 +70,8 @@ pub fn get_normals_from_shape<T: Float>(shape: &ShapeType<T>) -> &[Point2D<T>; 2
     }
 }
 
+pub type ShapeIdToNormalIndexPair = (u64, usize);
+
 pub struct EmissiveShape<T: Float> {
     pub name: String,
     pub shape_type: ShapeType<T>,
@@ -77,7 +79,7 @@ pub struct EmissiveShape<T: Float> {
     // Hash map between the normal index of the given shape, which maps
     // to a list of pair u64's.  Each pair signifies:
     // (target_shape_id, normal_index)
-    pub emits_to: HashMap<u64, Vec<(u64, u64)>>,
+    pub emits_to: HashMap<usize, Vec<ShapeIdToNormalIndexPair>>,
 }
 
 impl<T> EmissiveShape<T>
@@ -118,35 +120,43 @@ where
         self.emitting_shapes.push(shape);
     }
 
-    // TODO: Come up with better name
-    fn check_shape_against_others(self: &Self, shape_to_check: &Box<EmissiveShape<T>>) {
-        for shape in &self.emitting_shapes {
-            if shape.id == shape_to_check.id {
-                continue;
-            }
+    pub fn configure(self: &mut Self) {
+        for i in 0..self.emitting_shapes.len() {
+            let mut new_mapping: HashMap<usize, Vec<ShapeIdToNormalIndexPair>> = HashMap::new();
 
-            let norms_to_check = get_normals_from_shape(&shape_to_check.shape_type);
-            let norms = get_normals_from_shape(&shape.shape_type);
+            for j in 0..self.emitting_shapes.len() {
+                let shape_to_check = self.emitting_shapes[i].as_ref();
+                let shape = self.emitting_shapes[j].as_ref();
+                if shape_to_check.id == shape.id {
+                    continue;
+                }
 
-            for n_to_check in norms_to_check {
-                for n in norms {
-                    if Float::is_sign_positive(dot(n_to_check, n)) {
-                        // HIT TODO FILL THIS OUT
-                        println!("hit");
+                let norms_to_check = get_normals_from_shape(&shape_to_check.shape_type);
+                let norms = get_normals_from_shape(&shape.shape_type);
+
+                for (n_to_check_index, n_to_check) in norms_to_check.iter().enumerate() {
+                    for (n_index, n) in norms.iter().enumerate() {
+                        if Float::is_sign_positive(dot(n_to_check, n)) {
+                            if !new_mapping.contains_key(&n_to_check_index) {
+                                new_mapping.insert(n_to_check_index, Vec::new());
+                            }
+
+                            new_mapping
+                                .get_mut(&n_to_check_index)
+                                .unwrap()
+                                .push((shape.id.clone(), n_index.clone()));
+                        }
                     }
                 }
             }
-        }
-    }
 
-    pub fn configure(self: &Self) {
-        for shape in &self.emitting_shapes {
-            println!("{}", shape.name);
-            self.check_shape_against_others(shape);
+            self.emitting_shapes[i].as_mut().emits_to = new_mapping;
         }
     }
 
     pub fn run(self: &Self) {
         println!("{}", self.emitting_shapes.len());
+        println!("{:?}", self.emitting_shapes[0].emits_to.keys());
+        println!("{:?}", self.emitting_shapes[1].emits_to.keys());
     }
 }
