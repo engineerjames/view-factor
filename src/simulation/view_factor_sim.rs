@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::SeqCst;
 
-use num::Float;
+type FloatType = f32;
 
 // TODO: Do we need this? This will always match the order in the Vec...
 pub fn unique_id() -> u64 {
@@ -17,35 +17,29 @@ pub fn unique_id() -> u64 {
     id
 }
 
-pub fn dot<T: Float>(a: &Point2D<T>, b: &Point2D<T>) -> T {
+pub fn dot(a: &Point2D, b: &Point2D) -> FloatType {
     (a.x * b.x) + (a.y * b.y)
 }
 
 #[derive(Debug)]
-pub struct Point2D<T: num::Float> {
-    pub x: T,
-    pub y: T,
+pub struct Point2D {
+    pub x: FloatType,
+    pub y: FloatType,
 }
 
-impl<T> Point2D<T>
-where
-    T: Float,
-{
-    pub fn new((x1, y1): (T, T)) -> Point2D<T> {
+impl Point2D {
+    pub fn new((x1, y1): (FloatType, FloatType)) -> Point2D {
         Point2D { x: x1, y: y1 }
     }
 }
 
-pub struct Line2DState<T: Float> {
-    pub normals: [Point2D<T>; 2],
-    pub points: [Point2D<T>; 2], // Could use multiple constructors here eventually
+pub struct Line2DState {
+    pub normals: [Point2D; 2],
+    pub points: [Point2D; 2], // Could use multiple constructors here eventually
 }
 
-impl<T> Line2DState<T>
-where
-    T: Float,
-{
-    pub fn new(point1: Point2D<T>, point2: Point2D<T>) -> Line2DState<T> {
+impl Line2DState {
+    pub fn new(point1: Point2D, point2: Point2D) -> Line2DState {
         let dy = point2.y - point1.y;
         let dx = point2.x - point1.x;
 
@@ -59,12 +53,12 @@ where
     }
 }
 
-pub enum ShapeType<T: Float> {
-    Line2D(Line2DState<T>), // Just one shape for now
+pub enum ShapeType {
+    Line2D(Line2DState), // Just one shape for now
 }
 
 // TODO: You just wrote this, need to plugin to check shape with others
-pub fn get_normals_from_shape<T: Float>(shape: &ShapeType<T>) -> &[Point2D<T>; 2] {
+pub fn get_normals_from_shape(shape: &ShapeType) -> &[Point2D; 2] {
     match shape {
         ShapeType::Line2D(line_state) => &line_state.normals,
     }
@@ -72,9 +66,9 @@ pub fn get_normals_from_shape<T: Float>(shape: &ShapeType<T>) -> &[Point2D<T>; 2
 
 pub type ShapeIdToNormalIndexPair = (u64, usize);
 
-pub struct EmissiveShape<T: Float> {
+pub struct EmissiveShape {
     pub name: String,
-    pub shape_type: ShapeType<T>,
+    pub shape_type: ShapeType,
     pub id: u64,
     // Hash map between the normal index of the given shape, which maps
     // to a list of pair u64's.  Each pair signifies:
@@ -82,12 +76,9 @@ pub struct EmissiveShape<T: Float> {
     pub emits_to: HashMap<usize, Vec<ShapeIdToNormalIndexPair>>,
 }
 
-impl<T> EmissiveShape<T>
-where
-    T: Float,
-{
+impl EmissiveShape {
     // Generic constructor?
-    pub fn new(name: String, shape_type: ShapeType<T>) -> EmissiveShape<T> {
+    pub fn new(name: String, shape_type: ShapeType) -> EmissiveShape {
         EmissiveShape {
             name: name,
             shape_type: shape_type,
@@ -97,18 +88,15 @@ where
     }
 }
 
-pub struct Simulation<T: Float> {
-    pub emitting_shapes: Vec<Box<EmissiveShape<T>>>,
+pub struct Simulation {
+    pub emitting_shapes: Vec<Box<EmissiveShape>>,
     pub number_of_emissions: u64,
     pub random_seed: u64,
     // TODO: Logger
 }
 
-impl<T> Simulation<T>
-where
-    T: Float,
-{
-    pub fn new(num_emissions: u64, random_seed: Option<u64>) -> Simulation<T> {
+impl Simulation {
+    pub fn new(num_emissions: u64, random_seed: Option<u64>) -> Simulation {
         Simulation {
             emitting_shapes: Vec::new(),
             number_of_emissions: num_emissions,
@@ -116,7 +104,7 @@ where
         }
     }
 
-    pub fn add_shape(self: &mut Self, shape: Box<EmissiveShape<T>>) {
+    pub fn add_shape(self: &mut Self, shape: Box<EmissiveShape>) {
         self.emitting_shapes.push(shape);
     }
 
@@ -136,7 +124,7 @@ where
 
                 for (n_to_check_index, n_to_check) in norms_to_check.iter().enumerate() {
                     for (n_index, n) in norms.iter().enumerate() {
-                        if Float::is_sign_positive(dot(n_to_check, n)) {
+                        if dot(n_to_check, n) < 0.0 {
                             if !new_mapping.contains_key(&n_to_check_index) {
                                 new_mapping.insert(n_to_check_index, Vec::new());
                             }
