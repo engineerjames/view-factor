@@ -21,7 +21,11 @@ pub fn dot(a: &Point2D, b: &Point2D) -> FloatType {
     (a.x * b.x) + (a.y * b.y)
 }
 
-#[derive(Debug)]
+pub fn dist(a: &Point2D, b: &Point2D) -> FloatType {
+    FloatType::sqrt(FloatType::powf(b.x - a.x, 2.0) + FloatType::powf(b.y - a.y, 2.0))
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Point2D {
     pub x: FloatType,
     pub y: FloatType,
@@ -36,6 +40,7 @@ impl Point2D {
 pub struct Line2DState {
     pub normals: [Point2D; 2],
     pub points: [Point2D; 2], // Could use multiple constructors here eventually
+    pub midpoint: Point2D,
 }
 
 impl Line2DState {
@@ -43,12 +48,18 @@ impl Line2DState {
         let dy = point2.y - point1.y;
         let dx = point2.x - point1.x;
 
+        let midpoint = Point2D {
+            x: (point1.x + point2.x) / 2.0,
+            y: (point1.y + point2.y) / 2.0,
+        };
+
         let normal_1 = Point2D::new((-dy, dx));
         let normal_2 = Point2D::new((dy, -dx));
 
         Line2DState {
             normals: [normal_1, normal_2],
             points: [point1, point2],
+            midpoint: midpoint,
         }
     }
 }
@@ -84,6 +95,12 @@ impl EmissiveShape {
             shape_type: shape_type,
             id: unique_id(),
             emits_to: HashMap::new(),
+        }
+    }
+
+    pub fn get_reference_point(self: Self) -> Point2D {
+        match self.shape_type {
+            ShapeType::Line2D(line_state) => line_state.midpoint,
         }
     }
 }
@@ -146,5 +163,48 @@ impl Simulation {
         println!("{}", self.emitting_shapes.len());
         println!("{:?}", self.emitting_shapes[0].emits_to.keys());
         println!("{:?}", self.emitting_shapes[1].emits_to.keys());
+    }
+}
+
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn check_dot_product_calculation() {
+        let a = Point2D { x: 1.0, y: 2.0 };
+        let b = Point2D { x: 1.0, y: 2.0 };
+        let actual_result = dot(&a, &b);
+        let expected_result = 5.0;
+
+        assert_eq!(actual_result, expected_result);
+    }
+
+    #[test]
+    fn check_distance_calculation() {
+        let a = Point2D { x: 1.0, y: 1.0 };
+        let b = Point2D { x: 2.0, y: 2.0 };
+
+        let actual_result = dist(&a, &b);
+        let expected_result = f32::sqrt(2.0);
+
+        assert_eq!(actual_result, expected_result);
+    }
+
+    #[test]
+    fn line_state_check() {
+        let new_point = Line2DState::new(Point2D { x: 1.0, y: 1.0 }, Point2D { x: 2.0, y: 2.0 });
+
+        assert_eq!(new_point.points[0].x, 1.0);
+        assert_eq!(new_point.points[0].y, 1.0);
+        assert_eq!(new_point.points[1].x, 2.0);
+        assert_eq!(new_point.points[1].y, 2.0);
+    }
+
+    #[test]
+    fn line_state_check_midpoint() {
+        let new_point = Line2DState::new(Point2D { x: 1.0, y: 1.0 }, Point2D { x: 2.0, y: 2.0 });
+
+        assert_eq!(new_point.midpoint, Point2D { x: 1.5, y: 1.5 });
     }
 }
