@@ -25,7 +25,7 @@ pub fn dist(a: &Point2D, b: &Point2D) -> FloatType {
     FloatType::sqrt(FloatType::powf(b.x - a.x, 2.0) + FloatType::powf(b.y - a.y, 2.0))
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Point2D {
     pub x: FloatType,
     pub y: FloatType,
@@ -204,7 +204,14 @@ mod tests {
     #[test]
     fn line_state_check_midpoint() {
         let new_point = Line2DState::new(Point2D { x: 1.0, y: 1.0 }, Point2D { x: 2.0, y: 2.0 });
+        let midpoint = new_point.midpoint.clone();
 
         assert_eq!(new_point.midpoint, Point2D { x: 1.5, y: 1.5 });
+
+        let emissive_shape =
+            EmissiveShape::new(String::from("EmissiveTest1"), ShapeType::Line2D(new_point));
+
+        assert_eq!(emissive_shape.name, String::from("EmissiveTest1"));
+        assert_eq!(emissive_shape.get_reference_point(), midpoint);
     }
 }
