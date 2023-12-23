@@ -94,7 +94,7 @@ pub fn get_normals_from_shape(shape: &ShapeType) -> &[Point2D; 2] {
     }
 }
 
-pub type ShapeIdAndNormalIndex = (usize, usize);
+pub type ShapeAndNormalIndex = (usize, usize);
 
 pub struct EmissiveShape {
     pub name: String,
@@ -102,7 +102,7 @@ pub struct EmissiveShape {
     // Hash map between the normal index of the given shape, which maps
     // to a list of pair u64's.  Each pair signifies:
     // (target_shape_id, normal_index)
-    pub emits_to: HashMap<usize, Vec<ShapeIdAndNormalIndex>>,
+    pub emits_to: HashMap<usize, Vec<ShapeAndNormalIndex>>,
 }
 
 impl EmissiveShape {
@@ -159,7 +159,7 @@ impl Simulation {
 
     pub fn configure(self: &mut Self) {
         for i in 0..self.emitting_shapes.len() {
-            let mut new_mapping: HashMap<usize, Vec<ShapeIdAndNormalIndex>> = HashMap::new();
+            let mut new_mapping: HashMap<usize, Vec<ShapeAndNormalIndex>> = HashMap::new();
             let shape_to_check = self.emitting_shapes[i].as_ref();
             let norms_to_check = shape_to_check.get_normals();
 
@@ -212,6 +212,7 @@ impl Simulation {
             }
 
             // Normal index for shape_to_check
+            // Need a better data structure for the shape_id and normal_index
             let mut min_distance = 99999.0;
             for normal_index_for_shape_to_check in new_mapping.keys() {
                 for (shape_id, normal_index) in &new_mapping[normal_index_for_shape_to_check] {
