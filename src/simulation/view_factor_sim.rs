@@ -1,3 +1,9 @@
+use rand::{
+    random,
+    rngs::{StdRng, ThreadRng},
+    Rng, SeedableRng,
+};
+
 type FloatType = f32;
 
 pub fn dot(a: &Point2D, b: &Point2D) -> FloatType {
@@ -43,6 +49,7 @@ pub struct Line2DState {
     pub normals: [Point2D; 2],
     pub points: [Point2D; 2], // Could use multiple constructors here eventually
     pub midpoint: Point2D,
+    pub slope: FloatType,
 }
 
 impl Line2DState {
@@ -62,6 +69,7 @@ impl Line2DState {
             normals: [normal_1, normal_2],
             points: [point1, point2],
             midpoint: midpoint,
+            slope: dy / dx,
         }
     }
 }
@@ -98,6 +106,16 @@ impl EmissiveShape {
         }
     }
 
+    pub fn get_random_position(self: &Self, std_rng: &mut StdRng) -> Point2D {
+        match &self.shape_type {
+            ShapeType::Line2D(line_state) => {
+                let percent_from_p1 = std_rng.gen_range(0.0..1.0);
+
+                Point2D::new((0.0, 0.0))
+            }
+        }
+    }
+
     pub fn get_normals(self: &Self) -> &[Point2D; 2] {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => &line_state.normals,
@@ -118,6 +136,7 @@ pub struct Simulation {
     pub emitting_shapes: Vec<Box<EmissiveShape>>,
     pub number_of_emissions: u64,
     pub random_seed: u64,
+    rng: StdRng,
     // TODO: Logger
 }
 
@@ -127,6 +146,7 @@ impl Simulation {
             emitting_shapes: Vec::new(),
             number_of_emissions: num_emissions,
             random_seed: random_seed.unwrap_or_default(),
+            rng: StdRng::seed_from_u64(random_seed.unwrap_or_default()),
         }
     }
 
@@ -191,10 +211,16 @@ impl Simulation {
         }
     }
 
-    pub fn run(self: &Self) {
+    pub fn run(self: &mut Self) {
         println!("{}", self.emitting_shapes.len());
         println!("{:?}", self.emitting_shapes[0].emits_to);
         println!("{:?}", self.emitting_shapes[1].emits_to);
+
+        for i in 0..self.number_of_emissions {
+            let s = self.emitting_shapes[0].get_random_position(&mut self.rng);
+
+            println!("{} {}", s.x, s.y);
+        }
     }
 }
 
