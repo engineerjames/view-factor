@@ -37,6 +37,25 @@ impl Point2D {
     }
 }
 
+impl std::ops::Add for Point2D {
+    type Output = Point2D;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        return Point2D::new((self.x + rhs.x, self.y + rhs.y));
+    }
+}
+
+impl std::ops::Add for &Point2D {
+    type Output = Point2D;
+
+    fn add(self, other: &Point2D) -> Self::Output {
+        Point2D {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
+}
+
 pub struct Line2DState {
     pub normals: [Point2D; 2],
     pub points: [Point2D; 2], // Could use multiple constructors here eventually
@@ -75,16 +94,15 @@ pub fn get_normals_from_shape(shape: &ShapeType) -> &[Point2D; 2] {
     }
 }
 
-pub type ShapeIdToNormalIndexPair = (u64, usize);
+pub type ShapeIdAndNormalIndex = (usize, usize);
 
 pub struct EmissiveShape {
     pub name: String,
     pub shape_type: ShapeType,
-    pub id: u64,
     // Hash map between the normal index of the given shape, which maps
     // to a list of pair u64's.  Each pair signifies:
     // (target_shape_id, normal_index)
-    pub emits_to: HashMap<usize, Vec<ShapeIdToNormalIndexPair>>,
+    pub emits_to: HashMap<usize, Vec<ShapeIdAndNormalIndex>>,
 }
 
 impl EmissiveShape {
@@ -93,14 +111,28 @@ impl EmissiveShape {
         EmissiveShape {
             name: name,
             shape_type: shape_type,
-            id: unique_id(),
             emits_to: HashMap::new(),
         }
     }
 
-    pub fn get_reference_point(self: Self) -> Point2D {
-        match self.shape_type {
-            ShapeType::Line2D(line_state) => line_state.midpoint,
+    pub fn get_reference_point(self: &Self) -> &Point2D {
+        match &self.shape_type {
+            ShapeType::Line2D(line_state) => &line_state.midpoint,
+        }
+    }
+
+    pub fn get_normals(self: &Self) -> &[Point2D; 2] {
+        match &self.shape_type {
+            ShapeType::Line2D(line_state) => &line_state.normals,
+        }
+    }
+
+    pub fn get_reference_translated_normals(self: &Self) -> [Point2D; 2] {
+        match &self.shape_type {
+            ShapeType::Line2D(line_state) => [
+                &line_state.normals[0] + &line_state.midpoint,
+                &line_state.normals[1] + &line_state.midpoint,
+            ],
         }
     }
 }
@@ -127,17 +159,18 @@ impl Simulation {
 
     pub fn configure(self: &mut Self) {
         for i in 0..self.emitting_shapes.len() {
-            let mut new_mapping: HashMap<usize, Vec<ShapeIdToNormalIndexPair>> = HashMap::new();
+            let mut new_mapping: HashMap<usize, Vec<ShapeIdAndNormalIndex>> = HashMap::new();
+            let shape_to_check = self.emitting_shapes[i].as_ref();
+            let norms_to_check = shape_to_check.get_normals();
 
             for j in 0..self.emitting_shapes.len() {
-                let shape_to_check = self.emitting_shapes[i].as_ref();
-                let shape = self.emitting_shapes[j].as_ref();
-                if shape_to_check.id == shape.id {
+                // Don't check a shape against itself
+                if i == j {
                     continue;
                 }
 
-                let norms_to_check = get_normals_from_shape(&shape_to_check.shape_type);
-                let norms = get_normals_from_shape(&shape.shape_type);
+                let shape = self.emitting_shapes[j].as_ref();
+                let norms = shape.get_normals();
 
                 for (n_to_check_index, n_to_check) in norms_to_check.iter().enumerate() {
                     for (n_index, n) in norms.iter().enumerate() {
@@ -149,9 +182,51 @@ impl Simulation {
                             new_mapping
                                 .get_mut(&n_to_check_index)
                                 .unwrap()
-                                .push((shape.id.clone(), n_index.clone()));
+                                .push((j.clone(), n_index.clone()));
                         }
                     }
+                }
+            }
+
+            // This looks correct at the moment for our one test case
+            // We end up with a single match per normal vector per shape
+            println!("For shape {}", shape_to_check.name);
+            for (ii, nci) in norms_to_check.iter().enumerate() {
+                println!("ii={} nci={},{}", ii, nci.x, nci.y);
+                println!(
+                    "Found {} matches for this norm.",
+                    new_mapping.get(&ii).unwrap().len()
+                );
+
+                println!("And the matches are...");
+                for (shape_id, normative_index) in new_mapping.get(&ii).unwrap() {
+                    println!("id={} normid={}", shape_id, normative_index);
+                    println!(
+                        "dist={}",
+                        dist(
+                            shape_to_check.get_reference_point(),
+                            &self.emitting_shapes[*shape_id].get_normals()[*normative_index]
+                        )
+                    )
+                }
+            }
+
+            // Normal index for shape_to_check
+            let mut min_distance = 99999.0;
+            for normal_index_for_shape_to_check in new_mapping.keys() {
+                for (shape_id, normal_index) in &new_mapping[normal_index_for_shape_to_check] {
+                    let new_distance = dist(
+                        &shape_to_check.get_reference_translated_normals()
+                            [*normal_index_for_shape_to_check],
+                        &self.emitting_shapes[*shape_id].get_reference_translated_normals()
+                            [*normal_index],
+                    );
+
+                    println!("New distance: {}", new_distance);
+
+                    min_distance = FloatType::min(new_distance, min_distance);
+
+                    println!("New min distance: {}", min_distance);
                 }
             }
 
@@ -212,6 +287,6 @@ mod tests {
             EmissiveShape::new(String::from("EmissiveTest1"), ShapeType::Line2D(new_point));
 
         assert_eq!(emissive_shape.name, String::from("EmissiveTest1"));
-        assert_eq!(emissive_shape.get_reference_point(), midpoint);
+        assert_eq!(emissive_shape.get_reference_point(), &midpoint);
     }
 }
