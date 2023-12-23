@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::SeqCst;
 
+use num::Float;
+
 type FloatType = f32;
 
 // TODO: Do we need this? This will always match the order in the Vec...
@@ -96,13 +98,22 @@ pub fn get_normals_from_shape(shape: &ShapeType) -> &[Point2D; 2] {
 
 pub type ShapeAndNormalIndex = (usize, usize);
 
+#[derive(Debug)]
+pub struct NormalIndexMap {
+    source_shape_index: usize,
+    source_normal_index: usize,
+    target_shape_index: usize,
+    target_normal_index: usize,
+    distance: FloatType,
+}
+
 pub struct EmissiveShape {
     pub name: String,
     pub shape_type: ShapeType,
     // Hash map between the normal index of the given shape, which maps
     // to a list of pair u64's.  Each pair signifies:
     // (target_shape_id, normal_index)
-    pub emits_to: HashMap<usize, Vec<ShapeAndNormalIndex>>,
+    pub emits_to: Vec<NormalIndexMap>,
 }
 
 impl EmissiveShape {
@@ -111,7 +122,7 @@ impl EmissiveShape {
         EmissiveShape {
             name: name,
             shape_type: shape_type,
-            emits_to: HashMap::new(),
+            emits_to: Vec::new(),
         }
     }
 
@@ -159,9 +170,9 @@ impl Simulation {
 
     pub fn configure(self: &mut Self) {
         for i in 0..self.emitting_shapes.len() {
-            let mut new_mapping: HashMap<usize, Vec<ShapeAndNormalIndex>> = HashMap::new();
-            let shape_to_check = self.emitting_shapes[i].as_ref();
-            let norms_to_check = shape_to_check.get_normals();
+            let mut new_mapping: Vec<NormalIndexMap> = Vec::new();
+            let source_shape = self.emitting_shapes[i].as_ref();
+            let source_normals = source_shape.get_normals();
 
             for j in 0..self.emitting_shapes.len() {
                 // Don't check a shape against itself
@@ -169,20 +180,25 @@ impl Simulation {
                     continue;
                 }
 
-                let shape = self.emitting_shapes[j].as_ref();
-                let norms = shape.get_normals();
+                let target_shape = self.emitting_shapes[j].as_ref();
+                let target_normals = target_shape.get_normals();
 
-                for (n_to_check_index, n_to_check) in norms_to_check.iter().enumerate() {
-                    for (n_index, n) in norms.iter().enumerate() {
-                        if dot(n_to_check, n) < 0.0 {
-                            if !new_mapping.contains_key(&n_to_check_index) {
-                                new_mapping.insert(n_to_check_index, Vec::new());
-                            }
+                for (source_norm_index, source_normal) in source_normals.iter().enumerate() {
+                    for (target_norm_index, target_normal) in target_normals.iter().enumerate() {
+                        if dot(source_normal, target_normal) < 0.0 {
+                            let distance = dist(
+                                &source_shape.get_reference_translated_normals()[source_norm_index],
+                                &target_shape.get_reference_translated_normals()[target_norm_index],
+                            );
 
-                            new_mapping
-                                .get_mut(&n_to_check_index)
-                                .unwrap()
-                                .push((j.clone(), n_index.clone()));
+                            // We'll clean up the list later--first build up the potential matches
+                            new_mapping.push(NormalIndexMap {
+                                source_shape_index: i,
+                                source_normal_index: source_norm_index,
+                                target_shape_index: j,
+                                target_normal_index: target_norm_index,
+                                distance: distance,
+                            });
                         }
                     }
                 }
@@ -190,46 +206,27 @@ impl Simulation {
 
             // This looks correct at the moment for our one test case
             // We end up with a single match per normal vector per shape
-            println!("For shape {}", shape_to_check.name);
-            for (ii, nci) in norms_to_check.iter().enumerate() {
-                println!("ii={} nci={},{}", ii, nci.x, nci.y);
-                println!(
-                    "Found {} matches for this norm.",
-                    new_mapping.get(&ii).unwrap().len()
-                );
-
-                println!("And the matches are...");
-                for (shape_id, normative_index) in new_mapping.get(&ii).unwrap() {
-                    println!("id={} normid={}", shape_id, normative_index);
-                    println!(
-                        "dist={}",
-                        dist(
-                            shape_to_check.get_reference_point(),
-                            &self.emitting_shapes[*shape_id].get_normals()[*normative_index]
-                        )
-                    )
-                }
-            }
+            println!("For shape {}", source_shape.name);
 
             // Normal index for shape_to_check
             // Need a better data structure for the shape_id and normal_index
-            let mut min_distance = 99999.0;
-            for normal_index_for_shape_to_check in new_mapping.keys() {
-                for (shape_id, normal_index) in &new_mapping[normal_index_for_shape_to_check] {
-                    let new_distance = dist(
-                        &shape_to_check.get_reference_translated_normals()
-                            [*normal_index_for_shape_to_check],
-                        &self.emitting_shapes[*shape_id].get_reference_translated_normals()
-                            [*normal_index],
-                    );
+            // let mut min_distance = 99999.0;
+            // for normal_index_for_shape_to_check in new_mapping.keys() {
+            //     for (shape_id, normal_index) in &new_mapping[normal_index_for_shape_to_check] {
+            //         let new_distance = dist(
+            //             &shape_to_check.get_reference_translated_normals()
+            //                 [*normal_index_for_shape_to_check],
+            //             &self.emitting_shapes[*shape_id].get_reference_translated_normals()
+            //                 [*normal_index],
+            //         );
 
-                    println!("New distance: {}", new_distance);
+            //         println!("New distance: {}", new_distance);
 
-                    min_distance = FloatType::min(new_distance, min_distance);
+            //         min_distance = FloatType::min(new_distance, min_distance);
 
-                    println!("New min distance: {}", min_distance);
-                }
-            }
+            //         println!("New min distance: {}", min_distance);
+            //     }
+            // }
 
             self.emitting_shapes[i].as_mut().emits_to = new_mapping;
         }
@@ -237,8 +234,8 @@ impl Simulation {
 
     pub fn run(self: &Self) {
         println!("{}", self.emitting_shapes.len());
-        println!("{:?}", self.emitting_shapes[0].emits_to.keys());
-        println!("{:?}", self.emitting_shapes[1].emits_to.keys());
+        println!("{:?}", self.emitting_shapes[0].emits_to);
+        println!("{:?}", self.emitting_shapes[1].emits_to);
     }
 }
 
