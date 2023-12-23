@@ -1,23 +1,4 @@
-use std::collections::HashMap;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering::SeqCst;
-
-use num::Float;
-
 type FloatType = f32;
-
-// TODO: Do we need this? This will always match the order in the Vec...
-pub fn unique_id() -> u64 {
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    let id = COUNTER.fetch_add(1, SeqCst);
-    assert_ne!(
-        id,
-        u64::MAX,
-        "ID counter has overflowed and is no longer unique"
-    );
-    id
-}
 
 pub fn dot(a: &Point2D, b: &Point2D) -> FloatType {
     (a.x * b.x) + (a.y * b.y)
@@ -89,15 +70,6 @@ pub enum ShapeType {
     Line2D(Line2DState), // Just one shape for now
 }
 
-// TODO: You just wrote this, need to plugin to check shape with others
-pub fn get_normals_from_shape(shape: &ShapeType) -> &[Point2D; 2] {
-    match shape {
-        ShapeType::Line2D(line_state) => &line_state.normals,
-    }
-}
-
-pub type ShapeAndNormalIndex = (usize, usize);
-
 #[derive(Debug)]
 pub struct NormalIndexMap {
     source_shape_index: usize,
@@ -123,12 +95,6 @@ impl EmissiveShape {
             name: name,
             shape_type: shape_type,
             emits_to: Vec::new(),
-        }
-    }
-
-    pub fn get_reference_point(self: &Self) -> &Point2D {
-        match &self.shape_type {
-            ShapeType::Line2D(line_state) => &line_state.midpoint,
         }
     }
 
@@ -191,42 +157,35 @@ impl Simulation {
                                 &target_shape.get_reference_translated_normals()[target_norm_index],
                             );
 
-                            // We'll clean up the list later--first build up the potential matches
-                            new_mapping.push(NormalIndexMap {
+                            let new_source_target_pair = NormalIndexMap {
                                 source_shape_index: i,
                                 source_normal_index: source_norm_index,
                                 target_shape_index: j,
                                 target_normal_index: target_norm_index,
                                 distance: distance,
+                            };
+
+                            let prev_source_target_pair_index = new_mapping.iter().position(|x| {
+                                x.source_shape_index == i && x.target_shape_index == j
                             });
+
+                            if prev_source_target_pair_index.is_some() {
+                                let prev_source_target_pair =
+                                    &new_mapping[prev_source_target_pair_index.unwrap()];
+                                let should_replace_value =
+                                    distance < prev_source_target_pair.distance;
+
+                                if should_replace_value {
+                                    new_mapping[prev_source_target_pair_index.unwrap()] =
+                                        new_source_target_pair;
+                                }
+                            } else {
+                                new_mapping.push(new_source_target_pair);
+                            }
                         }
                     }
                 }
             }
-
-            // This looks correct at the moment for our one test case
-            // We end up with a single match per normal vector per shape
-            println!("For shape {}", source_shape.name);
-
-            // Normal index for shape_to_check
-            // Need a better data structure for the shape_id and normal_index
-            // let mut min_distance = 99999.0;
-            // for normal_index_for_shape_to_check in new_mapping.keys() {
-            //     for (shape_id, normal_index) in &new_mapping[normal_index_for_shape_to_check] {
-            //         let new_distance = dist(
-            //             &shape_to_check.get_reference_translated_normals()
-            //                 [*normal_index_for_shape_to_check],
-            //             &self.emitting_shapes[*shape_id].get_reference_translated_normals()
-            //                 [*normal_index],
-            //         );
-
-            //         println!("New distance: {}", new_distance);
-
-            //         min_distance = FloatType::min(new_distance, min_distance);
-
-            //         println!("New min distance: {}", min_distance);
-            //     }
-            // }
 
             self.emitting_shapes[i].as_mut().emits_to = new_mapping;
         }
@@ -277,7 +236,6 @@ mod tests {
     #[test]
     fn line_state_check_midpoint() {
         let new_point = Line2DState::new(Point2D { x: 1.0, y: 1.0 }, Point2D { x: 2.0, y: 2.0 });
-        let midpoint = new_point.midpoint.clone();
 
         assert_eq!(new_point.midpoint, Point2D { x: 1.5, y: 1.5 });
 
@@ -285,6 +243,5 @@ mod tests {
             EmissiveShape::new(String::from("EmissiveTest1"), ShapeType::Line2D(new_point));
 
         assert_eq!(emissive_shape.name, String::from("EmissiveTest1"));
-        assert_eq!(emissive_shape.get_reference_point(), &midpoint);
     }
 }
