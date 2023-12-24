@@ -74,7 +74,7 @@ impl Line2DState {
 
         // TODO: Should the slope be an Option<f32>? Straight up and down lines?
         let mut slope = 0.0;
-        if dx != 0.0 {
+        if dx >= (FloatType::EPSILON * 4.0) {
             slope = dy / dx;
         }
 
@@ -144,7 +144,11 @@ impl EmissiveShape {
                     std::process::exit(-1);
                 }
 
-                Point2D::new((new_x, new_y))
+                let angle_of_line = FloatType::atan(line_state.slope).to_degrees();
+
+                println!("theta={}", angle_of_line);
+                println!("slope={}", line_state.slope);
+                new_point
             }
         }
     }
@@ -294,13 +298,21 @@ mod tests {
 
     #[test]
     fn line_state_check_midpoint() {
-        let new_point = Line2DState::new(Point2D { x: 1.0, y: 1.0 }, Point2D { x: 2.0, y: 2.0 });
+        let new_line = Line2DState::new(Point2D { x: 1.0, y: 1.0 }, Point2D { x: 2.0, y: 2.0 });
 
-        assert_eq!(new_point.midpoint, Point2D { x: 1.5, y: 1.5 });
+        assert_eq!(new_line.midpoint, Point2D { x: 1.5, y: 1.5 });
 
         let emissive_shape =
-            EmissiveShape::new(String::from("EmissiveTest1"), ShapeType::Line2D(new_point));
+            EmissiveShape::new(String::from("EmissiveTest1"), ShapeType::Line2D(new_line));
 
         assert_eq!(emissive_shape.name, String::from("EmissiveTest1"));
+    }
+
+    #[test]
+    fn straight_line_has_zero_slope() {
+        let new_line = Line2DState::new(Point2D::new((-1.0, 2.0)), Point2D::new((-1.0, 4.0)));
+
+        assert_eq!(new_line.slope, 0.0);
+        assert_eq!(FloatType::atan(new_line.slope).to_degrees(), 0.0);
     }
 }
