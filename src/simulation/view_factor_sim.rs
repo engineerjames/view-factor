@@ -15,7 +15,16 @@ pub fn dist(a: &Point2D, b: &Point2D) -> FloatType {
 }
 
 pub fn is_point_on_line(p: &Point2D, line: &Line2DState) -> bool {
-    let result = p.y - (line.slope * p.x + line.y_intercept);
+    let mut result = 0.0;
+    if line.slope != 0.0 {
+        result = p.y - (line.slope * p.x + line.y_intercept);
+    } else {
+        // If we have a straight vertical or horizontal line, we just need
+        // to ensure that the new point either has the same X value as BOTH points
+        // that make the line, or the same Y value as BOTH points that make the line.
+        return (p.x == line.points[0].x && p.x == line.points[1].x)
+            || (p.y == line.points[0].y && p.y == line.points[1].y);
+    }
 
     FloatType::abs(result) <= (FloatType::EPSILON * 4.0)
 }
@@ -74,15 +83,18 @@ impl Line2DState {
 
         // TODO: Should the slope be an Option<f32>? Straight up and down lines?
         let mut slope = 0.0;
-        if dx >= (FloatType::EPSILON * 4.0) {
+        if FloatType::abs(dx) >= (FloatType::EPSILON * 4.0) {
             slope = dy / dx;
         }
 
-        let y_intercept = point1.y - slope * point1.x;
-        let y_intercept2 = point2.y - slope * point2.x;
+        let mut y_intercept = 0.0;
 
-        println!("y_int_1={}", y_intercept);
-        println!("y_int_2={}", y_intercept2);
+        if slope != 0.0 {
+            y_intercept = point1.y - slope * point1.x;
+            let y_intercept2 = point2.y - slope * point2.x;
+            println!("y_int_1={}", y_intercept);
+            println!("y_int_2={}", y_intercept2);
+        }
 
         Line2DState {
             normals: [normal_1, normal_2],
@@ -253,8 +265,9 @@ impl Simulation {
         println!("{:?}", self.emitting_shapes[0].emits_to);
         println!("{:?}", self.emitting_shapes[1].emits_to);
 
-        for i in 0..self.number_of_emissions {
-            let s = self.emitting_shapes[0].get_random_position_along_shape(&mut self.rng);
+        for i in 0..2 {
+            // Update back to number_of_emissions
+            let s = self.emitting_shapes[i].get_random_position_along_shape(&mut self.rng);
 
             println!("{} {}", s.x, s.y);
         }
