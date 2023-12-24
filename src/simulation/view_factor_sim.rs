@@ -1,8 +1,4 @@
-use rand::{
-    random,
-    rngs::{StdRng, ThreadRng},
-    Rng, SeedableRng,
-};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 type FloatType = f32;
 
@@ -15,7 +11,7 @@ pub fn dist(a: &Point2D, b: &Point2D) -> FloatType {
 }
 
 pub fn is_point_on_line(p: &Point2D, line: &Line2DState) -> bool {
-    let mut result = 0.0;
+    let result;
     if line.slope != 0.0 {
         result = p.y - (line.slope * p.x + line.y_intercept);
     } else {
@@ -138,7 +134,10 @@ impl EmissiveShape {
         }
     }
 
-    pub fn get_random_position_along_shape(self: &Self, std_rng: &mut StdRng) -> Point2D {
+    pub fn get_random_position_along_shape(
+        self: &Self,
+        std_rng: &mut StdRng,
+    ) -> (Point2D, FloatType) {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => {
                 let percent_along = std_rng.gen_range(0.0..1.0);
@@ -156,11 +155,12 @@ impl EmissiveShape {
                     std::process::exit(-1);
                 }
 
-                let angle_of_line = FloatType::atan(line_state.slope).to_degrees();
+                let min_angle_deg = FloatType::atan(line_state.slope).to_degrees();
+                let max_angle_deg = min_angle_deg + 180.0;
 
-                println!("theta={}", angle_of_line);
-                println!("slope={}", line_state.slope);
-                new_point
+                let angle_of_ray = std_rng.gen_range(min_angle_deg..max_angle_deg);
+
+                (new_point, angle_of_ray)
             }
         }
     }
@@ -269,7 +269,7 @@ impl Simulation {
             // Update back to number_of_emissions
             let s = self.emitting_shapes[i].get_random_position_along_shape(&mut self.rng);
 
-            println!("{} {}", s.x, s.y);
+            println!("x={} y={}, theta={}", s.0.x, s.0.y, s.1);
         }
     }
 }
