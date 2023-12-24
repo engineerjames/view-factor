@@ -14,6 +14,12 @@ pub fn dist(a: &Point2D, b: &Point2D) -> FloatType {
     FloatType::sqrt(FloatType::powf(b.x - a.x, 2.0) + FloatType::powf(b.y - a.y, 2.0))
 }
 
+pub fn is_point_on_line(p: &Point2D, line: &Line2DState) -> bool {
+    let result = p.y - (line.slope * p.x + line.y_intercept);
+
+    FloatType::abs(result) <= (FloatType::EPSILON * 4.0)
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Point2D {
     pub x: FloatType,
@@ -50,6 +56,7 @@ pub struct Line2DState {
     pub points: [Point2D; 2], // Could use multiple constructors here eventually
     pub midpoint: Point2D,
     pub slope: FloatType,
+    pub y_intercept: FloatType,
 }
 
 impl Line2DState {
@@ -65,11 +72,24 @@ impl Line2DState {
         let normal_1 = Point2D::new((-dy, dx));
         let normal_2 = Point2D::new((dy, -dx));
 
+        // TODO: Should the slope be an Option<f32>? Straight up and down lines?
+        let mut slope = 0.0;
+        if dx != 0.0 {
+            slope = dy / dx;
+        }
+
+        let y_intercept = point1.y - slope * point1.x;
+        let y_intercept2 = point2.y - slope * point2.x;
+
+        println!("y_int_1={}", y_intercept);
+        println!("y_int_2={}", y_intercept2);
+
         Line2DState {
             normals: [normal_1, normal_2],
             points: [point1, point2],
             midpoint: midpoint,
-            slope: dy / dx,
+            slope: slope,
+            y_intercept: y_intercept,
         }
     }
 }
@@ -106,12 +126,25 @@ impl EmissiveShape {
         }
     }
 
-    pub fn get_random_position(self: &Self, std_rng: &mut StdRng) -> Point2D {
+    pub fn get_random_position_along_shape(self: &Self, std_rng: &mut StdRng) -> Point2D {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => {
-                let percent_from_p1 = std_rng.gen_range(0.0..1.0);
+                let percent_along = std_rng.gen_range(0.0..1.0);
 
-                Point2D::new((0.0, 0.0))
+                let new_x = percent_along * line_state.points[1].x
+                    + (1.0 - percent_along) * line_state.points[0].x;
+                let new_y = percent_along * line_state.points[1].y
+                    + (1.0 - percent_along) * line_state.points[0].y;
+
+                let new_point = Point2D::new((new_x, new_y));
+
+                // Add function to check if point is on the line
+                if !is_point_on_line(&new_point, line_state) {
+                    println!("ERROR: Invalid point on line!");
+                    std::process::exit(-1);
+                }
+
+                Point2D::new((new_x, new_y))
             }
         }
     }
@@ -217,7 +250,7 @@ impl Simulation {
         println!("{:?}", self.emitting_shapes[1].emits_to);
 
         for i in 0..self.number_of_emissions {
-            let s = self.emitting_shapes[0].get_random_position(&mut self.rng);
+            let s = self.emitting_shapes[0].get_random_position_along_shape(&mut self.rng);
 
             println!("{} {}", s.x, s.y);
         }
