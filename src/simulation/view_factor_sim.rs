@@ -58,7 +58,7 @@ impl std::ops::Add for &Point2D {
 
 pub struct Line2DState {
     pub normals: [Point2D; 2],
-    pub points: [Point2D; 2], // Could use multiple constructors here eventually
+    pub points: [Point2D; 2],
     pub midpoint: Point2D,
     pub slope: FloatType,
     pub y_intercept: FloatType,
@@ -115,6 +115,20 @@ pub struct NormalIndexMap {
     distance: FloatType,
 }
 
+pub struct Ray {
+    pub point: Point2D,
+    pub angle: FloatType,
+}
+
+impl Ray {
+    fn new(p: Point2D, angle: FloatType) -> Ray {
+        Ray {
+            point: p,
+            angle: angle,
+        }
+    }
+}
+
 pub struct EmissiveShape {
     pub name: String,
     pub shape_type: ShapeType,
@@ -134,10 +148,12 @@ impl EmissiveShape {
         }
     }
 
-    pub fn get_random_position_along_shape(
+    pub fn get_emissive_ray(
         self: &Self,
         std_rng: &mut StdRng,
-    ) -> (Point2D, FloatType) {
+        target_normal_map: &NormalIndexMap,
+        emissive_shapes: &[Box<EmissiveShape>],
+    ) -> Ray {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => {
                 let percent_along = std_rng.gen_range(0.0..1.0);
@@ -155,12 +171,19 @@ impl EmissiveShape {
                     std::process::exit(-1);
                 }
 
-                let min_angle_deg = FloatType::atan(line_state.slope).to_degrees();
+                let target_shape = &emissive_shapes[target_normal_map.target_shape_index];
+                let target_shape_normal =
+                    &target_shape.get_normals()[target_normal_map.target_normal_index];
+
+                let normal_as_line =
+                    Line2DState::new(Point2D { x: 0.0, y: 0.0 }, target_shape_normal.clone());
+
+                let min_angle_deg = FloatType::atan(normal_as_line.slope).to_degrees();
                 let max_angle_deg = min_angle_deg + 180.0;
 
                 let angle_of_ray = std_rng.gen_range(min_angle_deg..max_angle_deg);
 
-                (new_point, angle_of_ray)
+                Ray::new(new_point, angle_of_ray)
             }
         }
     }
@@ -267,11 +290,30 @@ impl Simulation {
 
         for i in 0..2 {
             // Update back to number_of_emissions
-            let s = self.emitting_shapes[i].get_random_position_along_shape(&mut self.rng);
 
-            println!("x={} y={}, theta={}", s.0.x, s.0.y, s.1);
+            // Will need to iterate across shapes that we're emitting to?
+
+            for target_normal_map in &self.emitting_shapes[i].emits_to {
+                let s = self.emitting_shapes[i].get_emissive_ray(
+                    &mut self.rng,
+                    target_normal_map,
+                    &self.emitting_shapes,
+                );
+                println!("x={} y={}, theta={}", s.point.x, s.point.y, s.angle);
+                let does_hit = does_ray_hit(&s, &self.emitting_shapes);
+            }
         }
     }
+}
+
+fn does_ray_hit(s: &Ray, emitting_shapes: &[Box<EmissiveShape>]) -> Option<EmissiveShape> {
+    for shape in emitting_shapes {
+        match &shape.shape_type {
+            ShapeType::Line2D(line_state) => {}
+        }
+    }
+
+    None
 }
 
 mod tests {
