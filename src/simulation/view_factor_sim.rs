@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 type FloatType = f32;
@@ -131,7 +129,6 @@ pub enum ShapeType {
 #[derive(Debug)]
 pub struct NormalIndexMap {
     source_shape_index: usize,
-    source_normal_index: usize,
     target_shape_index: usize,
     target_normal_index: usize,
     distance: FloatType,
@@ -273,7 +270,6 @@ impl Simulation {
 
                             let new_source_target_pair = NormalIndexMap {
                                 source_shape_index: i,
-                                source_normal_index: source_norm_index,
                                 target_shape_index: j,
                                 target_normal_index: target_norm_index,
                                 distance: distance,
@@ -382,6 +378,7 @@ fn does_ray_hit<'a>(
 
 mod tests {
 
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]
