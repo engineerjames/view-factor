@@ -1,9 +1,15 @@
+use std::collections::HashMap;
+
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 type FloatType = f32;
 
 pub fn dot(a: &Point2D, b: &Point2D) -> FloatType {
     (a.x * b.x) + (a.y * b.y)
+}
+
+pub fn cross(a: &Point2D, b: &Point2D) -> FloatType {
+    (a.x * b.y) - (a.y * b.x)
 }
 
 pub fn dist(a: &Point2D, b: &Point2D) -> FloatType {
@@ -56,6 +62,25 @@ impl std::ops::Add for &Point2D {
     }
 }
 
+impl std::ops::Sub for &Point2D {
+    type Output = Point2D;
+
+    fn sub(self, rhs: &Point2D) -> Self::Output {
+        Point2D {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+impl std::ops::Sub for Point2D {
+    type Output = Point2D;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        return Point2D::new((self.x - rhs.x, self.y - rhs.y));
+    }
+}
+
 pub struct Line2DState {
     pub normals: [Point2D; 2],
     pub points: [Point2D; 2],
@@ -87,9 +112,6 @@ impl Line2DState {
 
         if slope != 0.0 {
             y_intercept = point1.y - slope * point1.x;
-            let y_intercept2 = point2.y - slope * point2.x;
-            println!("y_int_1={}", y_intercept);
-            println!("y_int_2={}", y_intercept2);
         }
 
         Line2DState {
@@ -288,28 +310,70 @@ impl Simulation {
         println!("{:?}", self.emitting_shapes[0].emits_to);
         println!("{:?}", self.emitting_shapes[1].emits_to);
 
-        for i in 0..2 {
-            // Update back to number_of_emissions
+        // Update back to number_of_emissions
 
-            // Will need to iterate across shapes that we're emitting to?
+        // Will need to iterate across shapes that we're emitting to?
+        for emitting_shape in &self.emitting_shapes {
+            for target_normal_map in &emitting_shape.emits_to {
+                let mut hit_count: u64 = 0;
+                for _ in 0..self.number_of_emissions {
+                    let s = emitting_shape.get_emissive_ray(
+                        &mut self.rng,
+                        target_normal_map,
+                        &self.emitting_shapes,
+                    );
+                    //println!("x={} y={}, theta={}", s.point.x, s.point.y, s.angle);
+                    let does_hit = does_ray_hit(&s, &self.emitting_shapes);
 
-            for target_normal_map in &self.emitting_shapes[i].emits_to {
-                let s = self.emitting_shapes[i].get_emissive_ray(
-                    &mut self.rng,
-                    target_normal_map,
-                    &self.emitting_shapes,
+                    if does_hit.is_some() {
+                        hit_count += 1;
+                    }
+                }
+
+                println!(
+                    "Hit Ratio = {}",
+                    (hit_count as FloatType) / (self.number_of_emissions as FloatType)
                 );
-                println!("x={} y={}, theta={}", s.point.x, s.point.y, s.angle);
-                let does_hit = does_ray_hit(&s, &self.emitting_shapes);
             }
         }
     }
 }
 
-fn does_ray_hit(s: &Ray, emitting_shapes: &[Box<EmissiveShape>]) -> Option<EmissiveShape> {
+fn does_ray_hit<'a>(
+    ray: &Ray,
+    emitting_shapes: &'a [Box<EmissiveShape>],
+) -> Option<&'a Box<EmissiveShape>> {
     for shape in emitting_shapes {
         match &shape.shape_type {
-            ShapeType::Line2D(line_state) => {}
+            ShapeType::Line2D(line_state) => {
+                // q = x1/y1 (point 1 of the line)
+                // q + s = x2/y2 (point 2 of the line)
+                // Then your line segment intersects the ray if 0 ≤ t and 0 ≤ u ≤ 1.
+                let r = Point2D::new((FloatType::cos(ray.angle), FloatType::sin(ray.angle)));
+                let q = &line_state.points[0];
+                let p = &ray.point;
+                let s = Point2D::new((
+                    line_state.points[1].x - line_state.points[0].x,
+                    line_state.points[1].y - line_state.points[0].y,
+                ));
+
+                //let t = (q - p) x s / (r x s)
+                //let u = (q − p) × r / (r × s)
+                let r_cross_s = cross(&r, &s);
+
+                if FloatType::abs(r_cross_s) <= (FloatType::EPSILON * 4.0) {
+                    return None;
+                }
+
+                let t = cross(&(q - p), &s) / r_cross_s;
+                let u = cross(&(q - p), &r) / r_cross_s;
+
+                if (0.0 <= t && t <= 1.0) && (0.0 <= u && u <= 1.0) {
+                    return Some(shape);
+                } else {
+                    ()
+                }
+            }
         }
     }
 

@@ -5,7 +5,7 @@ use simulation::view_factor_sim::{EmissiveShape, Line2DState, Point2D, ShapeType
 // Just to going to start by hard-coding everything
 fn main() {
     // Eventually take in arguments from the command line or JSON file?
-    let mut sim: Simulation = Simulation::new(5000, None);
+    let mut sim: Simulation = Simulation::new(500000, None);
 
     // Create four points that represents our two lines
     let p1 = Point2D::new((1.0, 2.0));
