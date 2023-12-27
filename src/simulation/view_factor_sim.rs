@@ -130,7 +130,7 @@ pub enum ShapeType {
 pub struct NormalIndexMap {
     source_shape_index: usize,
     target_shape_index: usize,
-    target_normal_index: usize,
+    source_normal_index: usize,
     distance: FloatType,
 }
 
@@ -171,7 +171,6 @@ impl EmissiveShape {
         self: &Self,
         std_rng: &mut StdRng,
         target_normal_map: &NormalIndexMap,
-        emissive_shapes: &[Box<EmissiveShape>],
     ) -> Ray {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => {
@@ -190,15 +189,14 @@ impl EmissiveShape {
                     std::process::exit(-1);
                 }
 
-                let target_shape = &emissive_shapes[target_normal_map.target_shape_index];
-                let target_shape_normal =
-                    &target_shape.get_normals()[target_normal_map.target_normal_index];
+                let source_shape_normal =
+                    &self.get_normals()[target_normal_map.source_normal_index];
 
-                let normal_as_line =
-                    Line2DState::new(Point2D { x: 0.0, y: 0.0 }, target_shape_normal.clone());
-
-                let min_angle_deg = FloatType::atan(normal_as_line.slope).to_degrees();
-                let max_angle_deg = min_angle_deg + 180.0;
+                // The ray we fire should be the same angle as the normal +/- 90 degrees
+                let angle_deg =
+                    FloatType::atan2(source_shape_normal.y, source_shape_normal.x).to_degrees();
+                let min_angle_deg = angle_deg - 90.0;
+                let max_angle_deg = min_angle_deg + 90.0;
 
                 let angle_of_ray = std_rng.gen_range(min_angle_deg..max_angle_deg);
 
@@ -263,15 +261,19 @@ impl Simulation {
                 for (source_norm_index, source_normal) in source_normals.iter().enumerate() {
                     for (target_norm_index, target_normal) in target_normals.iter().enumerate() {
                         if dot(source_normal, target_normal) < 0.0 {
-                            let distance = dist(
-                                &source_shape.get_reference_translated_normals()[source_norm_index],
-                                &target_shape.get_reference_translated_normals()[target_norm_index],
-                            );
+                            let ref_translated_source_normal =
+                                &source_shape.get_reference_translated_normals()[source_norm_index];
+
+                            let ref_translated_target_normal =
+                                &target_shape.get_reference_translated_normals()[target_norm_index];
+
+                            let distance =
+                                dist(ref_translated_source_normal, ref_translated_target_normal);
 
                             let new_source_target_pair = NormalIndexMap {
                                 source_shape_index: i,
                                 target_shape_index: j,
-                                target_normal_index: target_norm_index,
+                                source_normal_index: source_norm_index,
                                 distance: distance,
                             };
 
@@ -302,23 +304,17 @@ impl Simulation {
     }
 
     pub fn run(self: &mut Self) {
-        println!("{}", self.emitting_shapes.len());
-        println!("{:?}", self.emitting_shapes[0].emits_to);
-        println!("{:?}", self.emitting_shapes[1].emits_to);
-
-        // Update back to number_of_emissions
-
-        // Will need to iterate across shapes that we're emitting to?
         for emitting_shape in &self.emitting_shapes {
+            println!(
+                "Processing emissions for shape {}, which emits to {} other shape(s)",
+                emitting_shape.name,
+                &emitting_shape.emits_to.len()
+            );
+
             for target_normal_map in &emitting_shape.emits_to {
                 let mut hit_count: u64 = 0;
                 for _ in 0..self.number_of_emissions {
-                    let s = emitting_shape.get_emissive_ray(
-                        &mut self.rng,
-                        target_normal_map,
-                        &self.emitting_shapes,
-                    );
-                    //println!("x={} y={}, theta={}", s.point.x, s.point.y, s.angle);
+                    let s = emitting_shape.get_emissive_ray(&mut self.rng, target_normal_map);
                     let does_hit = does_ray_hit(&s, &self.emitting_shapes);
 
                     if does_hit.is_some() {
@@ -326,6 +322,8 @@ impl Simulation {
                     }
                 }
 
+                // TODO: Something still isn't quite right here, as the view factors should equal each other and
+                // they do not.
                 println!(
                     "Hit Ratio = {}",
                     (hit_count as FloatType) / (self.number_of_emissions as FloatType)
