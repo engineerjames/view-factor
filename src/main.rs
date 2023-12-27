@@ -15,12 +15,12 @@ fn main() {
 
     // Add two lines for starters
     sim.add_shape(Box::new(EmissiveShape::new(
-        String::from("line1"),
+        String::from("angled_line"),
         ShapeType::Line2D(Line2DState::new(p1, p2)),
     )));
 
     sim.add_shape(Box::new(EmissiveShape::new(
-        String::from("line2"),
+        String::from("straight_line"),
         ShapeType::Line2D(Line2DState::new(p3, p4)),
     )));
 
