@@ -50,3 +50,9 @@ As the project progresses, the full solution approach will be documented.
 
 ## How to use this project
 TBD - currently quite a bit is hard-coded, and I am still coming up to speed on using Rust--so with these two factors combined the code is quite messy.  However, you should be able to simply run `cargo run` and it should run as expected with the default parameters and geometry.
+
+The main files to look at:
+- ./python/check.ipynb
+  - This is a Jupyter notebook to walk through some of the math, and to verify its accuracy
+- ./src/simulation/view_factor_sim.rs
+  - This is the bulk of the Rust code--please send along any organization tips.
