@@ -5,13 +5,13 @@ use simulation::view_factor_sim::{EmissiveShape, Line2DState, Point2D, ShapeType
 // Just to going to start by hard-coding everything
 fn main() {
     // Eventually take in arguments from the command line or JSON file?
-    let mut sim: Simulation = Simulation::new(50, Some(2342));
+    let mut sim: Simulation = Simulation::new(5000, Some(2342));
 
     // Create four points that represents our two lines
     let p1 = Point2D::new((1.0, 2.0));
     let p2 = Point2D::new((3.0, 4.0));
-    let p3 = Point2D::new((-2.0, 7.0));
-    let p4 = Point2D::new((-2.0, 4.0));
+    let p3 = Point2D::new((-20.0, 4.0));
+    let p4 = Point2D::new((-20.0, 7.0));
 
     // Add two lines for starters
     sim.add_shape(Box::new(EmissiveShape::new(
