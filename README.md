@@ -1,6 +1,8 @@
 # view-factor
 View factor simulations in Rust
 
+[![Rust](https://github.com/engineerjames/view-factor/actions/workflows/rust.yml/badge.svg)](https://github.com/engineerjames/view-factor/actions/workflows/rust.yml)
+
 ## What is a view factor?
 A view factor is a portion of radiative heat flux which leaves a given surface, and "hits" another.  The view factor is based completely on the geometry, and is independent of physical surface properties or temperature.  It is a direct scaling factor on the amount of heat transfer between two surfaces via radiation.
 
