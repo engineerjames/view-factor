@@ -270,6 +270,9 @@ impl Simulation {
                             let distance =
                                 dist(ref_translated_source_normal, ref_translated_target_normal);
 
+                            // We only need to track which 'normal' to send the ray in the direction
+                            // of from the emitting source.  TODO: What do we do when shapes
+                            // are on both sides? Should this step just be removed entirely?
                             let new_source_target_pair = NormalIndexMap {
                                 source_shape_index: i,
                                 target_shape_index: j,
@@ -288,6 +291,7 @@ impl Simulation {
                                     distance < prev_source_target_pair.distance;
 
                                 if should_replace_value {
+                                    println!("Replaced value!");
                                     new_mapping[prev_source_target_pair_index.unwrap()] =
                                         new_source_target_pair;
                                 }
