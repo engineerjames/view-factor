@@ -2,6 +2,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 
 type FloatType = f32;
 
+#[allow(dead_code)]
 pub fn dot(a: &Point2D, b: &Point2D) -> FloatType {
     (a.x * b.x) + (a.y * b.y)
 }
@@ -10,6 +11,7 @@ pub fn cross(a: &Point2D, b: &Point2D) -> FloatType {
     (a.x * b.y) - (a.y * b.x)
 }
 
+#[allow(dead_code)]
 pub fn dist(a: &Point2D, b: &Point2D) -> FloatType {
     FloatType::sqrt(FloatType::powf(b.x - a.x, 2.0) + FloatType::powf(b.y - a.y, 2.0))
 }
@@ -126,14 +128,6 @@ pub enum ShapeType {
     Line2D(Line2DState), // Just one shape for now
 }
 
-#[derive(Debug)]
-pub struct NormalIndexMap {
-    source_shape_index: usize,
-    target_shape_index: usize,
-    source_normal_index: usize,
-    distance: FloatType,
-}
-
 pub struct Ray {
     pub point: Point2D,
     pub angle: FloatType,
@@ -151,10 +145,6 @@ impl Ray {
 pub struct EmissiveShape {
     pub name: String,
     pub shape_type: ShapeType,
-    // Hash map between the normal index of the given shape, which maps
-    // to a list of pair u64's.  Each pair signifies:
-    // (target_shape_id, normal_index)
-    pub emits_to: Vec<NormalIndexMap>,
 }
 
 impl EmissiveShape {
@@ -163,14 +153,13 @@ impl EmissiveShape {
         EmissiveShape {
             name: name,
             shape_type: shape_type,
-            emits_to: Vec::new(),
         }
     }
 
     pub fn get_emissive_ray(
         self: &Self,
         std_rng: &mut StdRng,
-        target_normal_map: &NormalIndexMap,
+        target_normal_map: &Point2D,
     ) -> Ray {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => {
@@ -189,8 +178,7 @@ impl EmissiveShape {
                     std::process::exit(-1);
                 }
 
-                let source_shape_normal =
-                    &self.get_normals()[target_normal_map.source_normal_index];
+                let source_shape_normal = target_normal_map;
 
                 // The ray we fire should be the same angle as the normal +/- 90 degrees
                 let angle_deg =
@@ -200,6 +188,8 @@ impl EmissiveShape {
 
                 let angle_of_ray = std_rng.gen_range(min_angle_deg..max_angle_deg);
 
+                println!("angle={},{}", min_angle_deg, max_angle_deg);
+                //print!("{},{} at {}\n", new_point.x, new_point.y, angle_of_ray);
                 Ray::new(new_point, angle_of_ray)
             }
         }
@@ -208,15 +198,6 @@ impl EmissiveShape {
     pub fn get_normals(self: &Self) -> &[Point2D; 2] {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => &line_state.normals,
-        }
-    }
-
-    pub fn get_reference_translated_normals(self: &Self) -> [Point2D; 2] {
-        match &self.shape_type {
-            ShapeType::Line2D(line_state) => [
-                &line_state.normals[0] + &line_state.midpoint,
-                &line_state.normals[1] + &line_state.midpoint,
-            ],
         }
     }
 }
@@ -244,81 +225,22 @@ impl Simulation {
     }
 
     pub fn configure(self: &mut Self) {
-        for i in 0..self.emitting_shapes.len() {
-            let mut new_mapping: Vec<NormalIndexMap> = Vec::new();
-            let source_shape = self.emitting_shapes[i].as_ref();
-            let source_normals = source_shape.get_normals();
-
-            for j in 0..self.emitting_shapes.len() {
-                // Don't check a shape against itself
-                if i == j {
-                    continue;
-                }
-
-                let target_shape = self.emitting_shapes[j].as_ref();
-                let target_normals = target_shape.get_normals();
-
-                for (source_norm_index, source_normal) in source_normals.iter().enumerate() {
-                    for (target_norm_index, target_normal) in target_normals.iter().enumerate() {
-                        if dot(source_normal, target_normal) < 0.0 {
-                            let ref_translated_source_normal =
-                                &source_shape.get_reference_translated_normals()[source_norm_index];
-
-                            let ref_translated_target_normal =
-                                &target_shape.get_reference_translated_normals()[target_norm_index];
-
-                            let distance =
-                                dist(ref_translated_source_normal, ref_translated_target_normal);
-
-                            // We only need to track which 'normal' to send the ray in the direction
-                            // of from the emitting source.  TODO: What do we do when shapes
-                            // are on both sides? Should this step just be removed entirely?
-                            let new_source_target_pair = NormalIndexMap {
-                                source_shape_index: i,
-                                target_shape_index: j,
-                                source_normal_index: source_norm_index,
-                                distance: distance,
-                            };
-
-                            let prev_source_target_pair_index = new_mapping.iter().position(|x| {
-                                x.source_shape_index == i && x.target_shape_index == j
-                            });
-
-                            if prev_source_target_pair_index.is_some() {
-                                let prev_source_target_pair =
-                                    &new_mapping[prev_source_target_pair_index.unwrap()];
-                                let should_replace_value =
-                                    distance < prev_source_target_pair.distance;
-
-                                if should_replace_value {
-                                    println!("Replaced value!");
-                                    new_mapping[prev_source_target_pair_index.unwrap()] =
-                                        new_source_target_pair;
-                                }
-                            } else {
-                                new_mapping.push(new_source_target_pair);
-                            }
-                        }
-                    }
-                }
-            }
-
-            self.emitting_shapes[i].as_mut().emits_to = new_mapping;
-        }
+        // TODO: Build up a list of all possible shapes that a given emitter can emit to
     }
 
     pub fn run(self: &mut Self) {
         for emitting_shape in &self.emitting_shapes {
             println!(
-                "Processing emissions for shape {}, which emits to {} other shape(s)",
-                emitting_shape.name,
-                &emitting_shape.emits_to.len()
+                "Processing emissions for shape {}",
+                emitting_shape.name
             );
 
-            for target_normal_map in &emitting_shape.emits_to {
+            for normal in emitting_shape.get_normals() {
+
                 let mut hit_count: u64 = 0;
+
                 for _ in 0..self.number_of_emissions {
-                    let s = emitting_shape.get_emissive_ray(&mut self.rng, target_normal_map);
+                    let s = emitting_shape.get_emissive_ray(&mut self.rng, normal);
                     let does_hit = does_ray_hit(&s, &self.emitting_shapes);
 
                     if does_hit.is_some() {
@@ -326,8 +248,6 @@ impl Simulation {
                     }
                 }
 
-                // TODO: Something still isn't quite right here, as the view factors should equal each other and
-                // they do not.
                 println!(
                     "Hit Ratio = {}",
                     (hit_count as FloatType) / (self.number_of_emissions as FloatType)
