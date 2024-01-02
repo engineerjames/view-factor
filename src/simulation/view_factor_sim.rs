@@ -184,11 +184,11 @@ impl EmissiveShape {
                 let angle_deg =
                     FloatType::atan2(source_shape_normal.y, source_shape_normal.x).to_degrees();
                 let min_angle_deg = angle_deg - 90.0;
-                let max_angle_deg = min_angle_deg + 90.0;
+                let max_angle_deg = angle_deg + 90.0;
 
                 let angle_of_ray = std_rng.gen_range(min_angle_deg..max_angle_deg);
 
-                println!("angle={},{}", min_angle_deg, max_angle_deg);
+                //println!("angle={},{}", min_angle_deg, max_angle_deg);
                 //print!("{},{} at {}\n", new_point.x, new_point.y, angle_of_ray);
                 Ray::new(new_point, angle_of_ray)
             }
