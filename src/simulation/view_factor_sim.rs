@@ -42,6 +42,10 @@ impl Point2D {
     pub fn new((x1, y1): (FloatType, FloatType)) -> Point2D {
         Point2D { x: x1, y: y1 }
     }
+
+    pub fn magnitude(self: &Self) -> FloatType {
+        FloatType::sqrt((self.x * self.x) + (self.y * self.y))
+    }
 }
 
 impl std::ops::Add for Point2D {
@@ -103,6 +107,11 @@ impl Line2DState {
         let normal_1 = Point2D::new((-dy, dx));
         let normal_2 = Point2D::new((dy, -dx));
 
+        let normal_1_normalized =
+            Point2D::new((-dy / &normal_1.magnitude(), dx / &normal_1.magnitude()));
+        let normal_2_normalized =
+            Point2D::new((dy / normal_2.magnitude(), -dx / normal_2.magnitude()));
+
         // TODO: Should the slope be an Option<f32>? Straight up and down lines?
         let mut slope = 0.0;
         if FloatType::abs(dx) >= (FloatType::EPSILON * 4.0) {
@@ -116,7 +125,7 @@ impl Line2DState {
         }
 
         Line2DState {
-            normals: [normal_1, normal_2],
+            normals: [normal_1_normalized, normal_2_normalized],
             points: [point1, point2],
             midpoint: midpoint,
             slope: slope,
@@ -184,9 +193,6 @@ impl EmissiveShape {
                 let max_angle_deg = angle_deg + 90.0;
 
                 let angle_of_ray = std_rng.gen_range(min_angle_deg..max_angle_deg);
-
-                println!("angle={},{}", min_angle_deg, max_angle_deg);
-                println!("{},{} at {}", new_point.x, new_point.y, angle_of_ray);
                 Ray::new(new_point, angle_of_ray)
             }
         }
@@ -234,7 +240,7 @@ impl Simulation {
 
                 for _ in 0..self.number_of_emissions {
                     let s = emitting_shape.get_emissive_ray(&mut self.rng, normal);
-                    let does_hit = does_ray_hit(&s, &self.emitting_shapes);
+                    let does_hit = does_ray_hit(&s, &self.emitting_shapes, emitting_shape);
 
                     if does_hit.is_some() {
                         hit_count += 1;
@@ -253,8 +259,14 @@ impl Simulation {
 fn does_ray_hit<'a>(
     ray: &Ray,
     emitting_shapes: &'a [Box<EmissiveShape>],
+    emitted_from: &'a Box<EmissiveShape>,
 ) -> Option<&'a Box<EmissiveShape>> {
     for shape in emitting_shapes {
+        // Don't check to see if we intersect with ourselves--we always will
+        if shape.name == emitted_from.name {
+            continue;
+        }
+
         match &shape.shape_type {
             ShapeType::Line2D(line_state) => {
                 // https://gamedev.stackexchange.com/questions/109420/ray-segment-intersection
