@@ -93,7 +93,7 @@ impl Line2DState {
         let normal_2 = Point2D::new((dy, -dx));
 
         let normal_1_normalized =
-            Point2D::new((-dy / &normal_1.magnitude(), dx / &normal_1.magnitude()));
+            Point2D::new((-dy / normal_1.magnitude(), dx / normal_1.magnitude()));
         let normal_2_normalized =
             Point2D::new((dy / normal_2.magnitude(), -dx / normal_2.magnitude()));
 
