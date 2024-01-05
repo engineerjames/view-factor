@@ -2,21 +2,6 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 
 type FloatType = f32;
 
-#[allow(dead_code)]
-pub fn dot(a: &Point2D, b: &Point2D) -> FloatType {
-    (a.x * b.x) + (a.y * b.y)
-}
-
-#[allow(dead_code)]
-pub fn cross(a: &Point2D, b: &Point2D) -> FloatType {
-    (a.x * b.y) - (a.y * b.x)
-}
-
-#[allow(dead_code)]
-pub fn dist(a: &Point2D, b: &Point2D) -> FloatType {
-    FloatType::sqrt(FloatType::powf(b.x - a.x, 2.0) + FloatType::powf(b.y - a.y, 2.0))
-}
-
 pub fn is_point_on_line(p: &Point2D, line: &Line2DState) -> bool {
     let result;
     if line.slope != 0.0 {
@@ -310,27 +295,6 @@ mod tests {
 
     #[allow(unused_imports)]
     use super::*;
-
-    #[test]
-    fn check_dot_product_calculation() {
-        let a = Point2D { x: 1.0, y: 2.0 };
-        let b = Point2D { x: 1.0, y: 2.0 };
-        let actual_result = dot(&a, &b);
-        let expected_result = 5.0;
-
-        assert_eq!(actual_result, expected_result);
-    }
-
-    #[test]
-    fn check_distance_calculation() {
-        let a = Point2D { x: 1.0, y: 1.0 };
-        let b = Point2D { x: 2.0, y: 2.0 };
-
-        let actual_result = dist(&a, &b);
-        let expected_result = f32::sqrt(2.0);
-
-        assert_eq!(actual_result, expected_result);
-    }
 
     #[test]
     fn line_state_check() {
