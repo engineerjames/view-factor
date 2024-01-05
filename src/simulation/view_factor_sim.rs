@@ -2,18 +2,6 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 
 type FloatType = f32;
 
-pub fn dot(a: &Point2D, b: &Point2D) -> FloatType {
-    (a.x * b.x) + (a.y * b.y)
-}
-
-pub fn cross(a: &Point2D, b: &Point2D) -> FloatType {
-    (a.x * b.y) - (a.y * b.x)
-}
-
-pub fn dist(a: &Point2D, b: &Point2D) -> FloatType {
-    FloatType::sqrt(FloatType::powf(b.x - a.x, 2.0) + FloatType::powf(b.y - a.y, 2.0))
-}
-
 pub fn is_point_on_line(p: &Point2D, line: &Line2DState) -> bool {
     let result;
     if line.slope != 0.0 {
@@ -38,6 +26,10 @@ pub struct Point2D {
 impl Point2D {
     pub fn new((x1, y1): (FloatType, FloatType)) -> Point2D {
         Point2D { x: x1, y: y1 }
+    }
+
+    pub fn magnitude(self: &Self) -> FloatType {
+        FloatType::sqrt((self.x * self.x) + (self.y * self.y))
     }
 }
 
@@ -100,6 +92,11 @@ impl Line2DState {
         let normal_1 = Point2D::new((-dy, dx));
         let normal_2 = Point2D::new((dy, -dx));
 
+        let normal_1_normalized =
+            Point2D::new((-dy / normal_1.magnitude(), dx / normal_1.magnitude()));
+        let normal_2_normalized =
+            Point2D::new((dy / normal_2.magnitude(), -dx / normal_2.magnitude()));
+
         // TODO: Should the slope be an Option<f32>? Straight up and down lines?
         let mut slope = 0.0;
         if FloatType::abs(dx) >= (FloatType::EPSILON * 4.0) {
@@ -113,7 +110,7 @@ impl Line2DState {
         }
 
         Line2DState {
-            normals: [normal_1, normal_2],
+            normals: [normal_1_normalized, normal_2_normalized],
             points: [point1, point2],
             midpoint: midpoint,
             slope: slope,
@@ -124,14 +121,6 @@ impl Line2DState {
 
 pub enum ShapeType {
     Line2D(Line2DState), // Just one shape for now
-}
-
-#[derive(Debug)]
-pub struct NormalIndexMap {
-    source_shape_index: usize,
-    target_shape_index: usize,
-    source_normal_index: usize,
-    distance: FloatType,
 }
 
 pub struct Ray {
@@ -151,10 +140,6 @@ impl Ray {
 pub struct EmissiveShape {
     pub name: String,
     pub shape_type: ShapeType,
-    // Hash map between the normal index of the given shape, which maps
-    // to a list of pair u64's.  Each pair signifies:
-    // (target_shape_id, normal_index)
-    pub emits_to: Vec<NormalIndexMap>,
 }
 
 impl EmissiveShape {
@@ -163,15 +148,10 @@ impl EmissiveShape {
         EmissiveShape {
             name: name,
             shape_type: shape_type,
-            emits_to: Vec::new(),
         }
     }
 
-    pub fn get_emissive_ray(
-        self: &Self,
-        std_rng: &mut StdRng,
-        target_normal_map: &NormalIndexMap,
-    ) -> Ray {
+    pub fn get_emissive_ray(self: &Self, std_rng: &mut StdRng, target_normal_map: &Point2D) -> Ray {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => {
                 let percent_along = std_rng.gen_range(0.0..1.0);
@@ -189,17 +169,15 @@ impl EmissiveShape {
                     std::process::exit(-1);
                 }
 
-                let source_shape_normal =
-                    &self.get_normals()[target_normal_map.source_normal_index];
+                let source_shape_normal = target_normal_map;
 
                 // The ray we fire should be the same angle as the normal +/- 90 degrees
                 let angle_deg =
                     FloatType::atan2(source_shape_normal.y, source_shape_normal.x).to_degrees();
                 let min_angle_deg = angle_deg - 90.0;
-                let max_angle_deg = min_angle_deg + 90.0;
+                let max_angle_deg = angle_deg + 90.0;
 
                 let angle_of_ray = std_rng.gen_range(min_angle_deg..max_angle_deg);
-
                 Ray::new(new_point, angle_of_ray)
             }
         }
@@ -208,15 +186,6 @@ impl EmissiveShape {
     pub fn get_normals(self: &Self) -> &[Point2D; 2] {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => &line_state.normals,
-        }
-    }
-
-    pub fn get_reference_translated_normals(self: &Self) -> [Point2D; 2] {
-        match &self.shape_type {
-            ShapeType::Line2D(line_state) => [
-                &line_state.normals[0] + &line_state.midpoint,
-                &line_state.normals[1] + &line_state.midpoint,
-            ],
         }
     }
 }
@@ -244,86 +213,25 @@ impl Simulation {
     }
 
     pub fn configure(self: &mut Self) {
-        for i in 0..self.emitting_shapes.len() {
-            let mut new_mapping: Vec<NormalIndexMap> = Vec::new();
-            let source_shape = self.emitting_shapes[i].as_ref();
-            let source_normals = source_shape.get_normals();
-
-            for j in 0..self.emitting_shapes.len() {
-                // Don't check a shape against itself
-                if i == j {
-                    continue;
-                }
-
-                let target_shape = self.emitting_shapes[j].as_ref();
-                let target_normals = target_shape.get_normals();
-
-                for (source_norm_index, source_normal) in source_normals.iter().enumerate() {
-                    for (target_norm_index, target_normal) in target_normals.iter().enumerate() {
-                        if dot(source_normal, target_normal) < 0.0 {
-                            let ref_translated_source_normal =
-                                &source_shape.get_reference_translated_normals()[source_norm_index];
-
-                            let ref_translated_target_normal =
-                                &target_shape.get_reference_translated_normals()[target_norm_index];
-
-                            let distance =
-                                dist(ref_translated_source_normal, ref_translated_target_normal);
-
-                            let new_source_target_pair = NormalIndexMap {
-                                source_shape_index: i,
-                                target_shape_index: j,
-                                source_normal_index: source_norm_index,
-                                distance: distance,
-                            };
-
-                            let prev_source_target_pair_index = new_mapping.iter().position(|x| {
-                                x.source_shape_index == i && x.target_shape_index == j
-                            });
-
-                            if prev_source_target_pair_index.is_some() {
-                                let prev_source_target_pair =
-                                    &new_mapping[prev_source_target_pair_index.unwrap()];
-                                let should_replace_value =
-                                    distance < prev_source_target_pair.distance;
-
-                                if should_replace_value {
-                                    new_mapping[prev_source_target_pair_index.unwrap()] =
-                                        new_source_target_pair;
-                                }
-                            } else {
-                                new_mapping.push(new_source_target_pair);
-                            }
-                        }
-                    }
-                }
-            }
-
-            self.emitting_shapes[i].as_mut().emits_to = new_mapping;
-        }
+        // TODO: Build up a list of all possible shapes that a given emitter can emit to
     }
 
     pub fn run(self: &mut Self) {
         for emitting_shape in &self.emitting_shapes {
-            println!(
-                "Processing emissions for shape {}, which emits to {} other shape(s)",
-                emitting_shape.name,
-                &emitting_shape.emits_to.len()
-            );
+            println!("Processing emissions for shape {}", emitting_shape.name);
 
-            for target_normal_map in &emitting_shape.emits_to {
+            for normal in emitting_shape.get_normals() {
                 let mut hit_count: u64 = 0;
+
                 for _ in 0..self.number_of_emissions {
-                    let s = emitting_shape.get_emissive_ray(&mut self.rng, target_normal_map);
-                    let does_hit = does_ray_hit(&s, &self.emitting_shapes);
+                    let s = emitting_shape.get_emissive_ray(&mut self.rng, normal);
+                    let does_hit = does_ray_hit(&s, &self.emitting_shapes, emitting_shape);
 
                     if does_hit.is_some() {
                         hit_count += 1;
                     }
                 }
 
-                // TODO: Something still isn't quite right here, as the view factors should equal each other and
-                // they do not.
                 println!(
                     "Hit Ratio = {}",
                     (hit_count as FloatType) / (self.number_of_emissions as FloatType)
@@ -336,37 +244,46 @@ impl Simulation {
 fn does_ray_hit<'a>(
     ray: &Ray,
     emitting_shapes: &'a [Box<EmissiveShape>],
+    emitted_from: &'a Box<EmissiveShape>,
 ) -> Option<&'a Box<EmissiveShape>> {
     for shape in emitting_shapes {
+        // Don't check to see if we intersect with ourselves--we always will
+        if shape.name == emitted_from.name {
+            continue;
+        }
+
         match &shape.shape_type {
             ShapeType::Line2D(line_state) => {
-                // q = x1/y1 (point 1 of the line)
-                // q + s = x2/y2 (point 2 of the line)
-                // Then your line segment intersects the ray if 0 ≤ t and 0 ≤ u ≤ 1.
-                let r = Point2D::new((FloatType::cos(ray.angle), FloatType::sin(ray.angle)));
-                let q = &line_state.points[0];
-                let p = &ray.point;
-                let s = Point2D::new((
-                    line_state.points[1].x - line_state.points[0].x,
-                    line_state.points[1].y - line_state.points[0].y,
-                ));
+                // https://gamedev.stackexchange.com/questions/109420/ray-segment-intersection
+                // dx = change in x for ray
+                // dy = change in y for ray
+                // x,y = origin of ray
+                // x1,y1, x2,y2 = line segment
+                // TODO: Make sure the lines aren't parallel
+                let dx = FloatType::cos(ray.angle.to_radians());
+                let dy = FloatType::sin(ray.angle.to_radians());
 
-                //let t = (q - p) x s / (r x s)
-                //let u = (q − p) × r / (r × s)
-                let r_cross_s = cross(&r, &s);
+                let x2_minus_x1 = line_state.points[1].x - line_state.points[0].x;
+                let y2_minus_y1 = line_state.points[1].y - line_state.points[0].y;
 
-                if FloatType::abs(r_cross_s) <= (FloatType::EPSILON * 4.0) {
-                    return None;
+                if dy * x2_minus_x1 != dx * y2_minus_y1 {
+                    let d = (dx * y2_minus_y1) - (dy * x2_minus_x1);
+                    let y_minus_y1: f32 = ray.point.y - line_state.points[0].y;
+                    let x_minus_x1 = ray.point.x - line_state.points[0].x;
+
+                    if FloatType::abs(d) != 0.0 {
+                        let r = (((y_minus_y1) * (x2_minus_x1)) - (x_minus_x1) * (y2_minus_y1)) / d;
+                        let s = (((y_minus_y1) * dx) - (x_minus_x1 * dy)) / d;
+
+                        if r >= 0.0 && s >= 0.0 && s <= 1.0 {
+                            return Some(shape);
+                        }
+                    } else {
+                        println!("D was actually equal to 0! ERROR")
+                    }
                 }
 
-                let t = cross(&(q - p), &s) / r_cross_s;
-                let u = cross(&(q - p), &r) / r_cross_s;
-
-                if (0.0 <= t && t <= 1.0) && (0.0 <= u && u <= 1.0) {
-                    return Some(shape);
-                } else {
-                    ()
-                }
+                continue;
             }
         }
     }
@@ -378,27 +295,6 @@ mod tests {
 
     #[allow(unused_imports)]
     use super::*;
-
-    #[test]
-    fn check_dot_product_calculation() {
-        let a = Point2D { x: 1.0, y: 2.0 };
-        let b = Point2D { x: 1.0, y: 2.0 };
-        let actual_result = dot(&a, &b);
-        let expected_result = 5.0;
-
-        assert_eq!(actual_result, expected_result);
-    }
-
-    #[test]
-    fn check_distance_calculation() {
-        let a = Point2D { x: 1.0, y: 1.0 };
-        let b = Point2D { x: 2.0, y: 2.0 };
-
-        let actual_result = dist(&a, &b);
-        let expected_result = f32::sqrt(2.0);
-
-        assert_eq!(actual_result, expected_result);
-    }
 
     #[test]
     fn line_state_check() {
