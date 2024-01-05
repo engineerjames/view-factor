@@ -7,6 +7,7 @@ pub fn dot(a: &Point2D, b: &Point2D) -> FloatType {
     (a.x * b.x) + (a.y * b.y)
 }
 
+#[allow(dead_code)]
 pub fn cross(a: &Point2D, b: &Point2D) -> FloatType {
     (a.x * b.y) - (a.y * b.x)
 }
@@ -184,8 +185,8 @@ impl EmissiveShape {
 
                 let angle_of_ray = std_rng.gen_range(min_angle_deg..max_angle_deg);
 
-                //println!("angle={},{}", min_angle_deg, max_angle_deg);
-                //print!("{},{} at {}\n", new_point.x, new_point.y, angle_of_ray);
+                println!("angle={},{}", min_angle_deg, max_angle_deg);
+                println!("{},{} at {}", new_point.x, new_point.y, angle_of_ray);
                 Ray::new(new_point, angle_of_ray)
             }
         }
@@ -256,8 +257,7 @@ fn does_ray_hit<'a>(
     for shape in emitting_shapes {
         match &shape.shape_type {
             ShapeType::Line2D(line_state) => {
-
-                /// https://gamedev.stackexchange.com/questions/109420/ray-segment-intersection
+                // https://gamedev.stackexchange.com/questions/109420/ray-segment-intersection
                 // dx = change in x for ray
                 // dy = change in y for ray
                 // x,y = origin of ray
@@ -269,76 +269,24 @@ fn does_ray_hit<'a>(
                 let x2_minus_x1 = line_state.points[1].x - line_state.points[0].x;
                 let y2_minus_y1 = line_state.points[1].y - line_state.points[0].y;
 
-                if dy / dx != (y2_minus_y1) / (x2_minus_x1) {
+                if dy * x2_minus_x1 != dx * y2_minus_y1 {
                     let d = (dx * y2_minus_y1) - (dy * x2_minus_x1);
                     let y_minus_y1: f32 = ray.point.y - line_state.points[0].y;
                     let x_minus_x1 = ray.point.x - line_state.points[0].x;
 
-                    if FloatType::abs(d) >= FloatType::EPSILON {
+                    if FloatType::abs(d) != 0.0 {
                         let r = (((y_minus_y1) * (x2_minus_x1)) - (x_minus_x1) * (y2_minus_y1)) / d;
                         let s = (((y_minus_y1) * dx) - (x_minus_x1 * dy)) / d;
 
-                        //println!("{} {}", r, s);
                         if r >= 0.0 && s >= 0.0 && s <= 1.0 {
                             return Some(shape);
                         }
+                    } else {
+                        println!("D was actually equal to 0! ERROR")
                     }
                 }
 
                 continue;
-
-                // function RayToLineSegment(x, y, dx, dy, x1, y1, x2, y2)
-                // {
-                //     var r, s, d;
-                //     //Make sure the lines aren't parallel, can use an epsilon here instead
-                //     // Division by zero in C# at run-time is infinity. In JS it's NaN
-                //     if (dy / dx != (y2 - y1) / (x2 - x1))
-                //     {
-                //         d = ((dx * (y2 - y1)) - dy * (x2 - x1));
-                //         if (d != 0)
-                //         {
-                //             r = (((y - y1) * (x2 - x1)) - (x - x1) * (y2 - y1)) / d;
-                //             s = (((y - y1) * dx) - (x - x1) * dy) / d;
-                //             if (r >= 0 && s >= 0 && s <= 1)
-                //             {
-                //                 return { x: x + r * dx, y: y + r * dy };
-                //             }
-                //         }
-                //     }
-                //     return null;
-                // }
-
-                // q = x1/y1 (point 1 of the line)
-                // q + s = x2/y2 (point 2 of the line)
-                // Then your line segment intersects the ray if 0 ≤ t and 0 ≤ u ≤ 1.
-                let r = Point2D::new((
-                    FloatType::cos(ray.angle.to_radians()),
-                    FloatType::sin(ray.angle.to_radians()),
-                ));
-                let q = &line_state.points[0];
-                let p = &ray.point;
-                let s = Point2D::new((
-                    line_state.points[1].x - line_state.points[0].x,
-                    line_state.points[1].y - line_state.points[0].y,
-                ));
-
-                //let t = (q - p) x s / (r x s)
-                //let u = (q − p) × r / (r × s)
-                let r_cross_s = cross(&r, &s);
-
-                if FloatType::abs(r_cross_s) <= FloatType::EPSILON {
-                    continue;
-                }
-
-                let q_minus_p = q - p;
-                let t = cross(&q_minus_p, &s) / r_cross_s;
-                let u = cross(&q_minus_p, &r) / r_cross_s;
-
-                if (0.0 <= t && t <= 1.0) && (0.0 <= u && u <= 1.0) {
-                    return Some(shape);
-                } else {
-                    continue;
-                }
             }
         }
     }
