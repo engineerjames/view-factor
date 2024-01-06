@@ -1,3 +1,5 @@
+use std::{collections::HashMap, ptr::null};
+
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 type FloatType = f32;
@@ -198,6 +200,11 @@ pub struct Simulation {
     // TODO: Logger
 }
 
+pub struct SimulationResult<'a> {
+    pub emitting_shape: &'a Box<EmissiveShape>,
+    pub normal_index_to_view_factor: HashMap<usize, FloatType>,
+}
+
 impl Simulation {
     pub fn new(num_emissions: u64, random_seed: Option<u64>) -> Simulation {
         Simulation {
@@ -216,11 +223,15 @@ impl Simulation {
         // TODO: Build up a list of all possible shapes that a given emitter can emit to
     }
 
-    pub fn run(self: &mut Self) {
+    pub fn run(self: &mut Self) -> Vec<SimulationResult> {
+        let mut sim_results: Vec<SimulationResult> = Vec::new();
+
         for emitting_shape in &self.emitting_shapes {
             println!("Processing emissions for shape {}", emitting_shape.name);
 
-            for normal in emitting_shape.get_normals() {
+            let mut normal_to_view_factor: HashMap<usize, FloatType> = HashMap::new();
+
+            for (i, normal) in emitting_shape.get_normals().iter().enumerate() {
                 let mut hit_count: u64 = 0;
 
                 for _ in 0..self.number_of_emissions {
@@ -232,12 +243,23 @@ impl Simulation {
                     }
                 }
 
-                println!(
-                    "Hit Ratio = {}",
-                    (hit_count as FloatType) / (self.number_of_emissions as FloatType)
-                );
+                let view_factor =
+                    (hit_count as FloatType) / (self.number_of_emissions as FloatType);
+
+                if view_factor > 0.0 {
+                    normal_to_view_factor.insert(i, view_factor);
+                }
+
+                println!("Hit Ratio = {}", view_factor);
             }
+
+            sim_results.push(SimulationResult {
+                emitting_shape: &emitting_shape,
+                normal_index_to_view_factor: normal_to_view_factor,
+            })
         }
+
+        sim_results
     }
 }
 

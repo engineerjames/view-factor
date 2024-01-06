@@ -9,8 +9,8 @@ pub fn parallel_strips(separation: f64, width_1: f64, width_2: f64) -> f64 {
     let w2 = width_2 / separation;
 
     let denom = 2.0 * w1;
-    let num1 = f64::sqrt(((w1 + w2) * (w1 + w2)) + 4.0);
-    let num2 = f64::sqrt(((w2 - w1) * (w2 - w1)) + 4.0);
+    let num1 = f64::sqrt(f64::powf(w1 + w2, 2.0) + 4.0);
+    let num2 = f64::sqrt(f64::powf(w2 - w1, 2.0) + 4.0);
 
     num1 / denom - num2 / denom
 }
