@@ -46,7 +46,11 @@ In order to solve for each view factor, we can use a monte carlo simulation and 
 3. Determine if the ray "hits" 
 4. Repeat steps 1-3 $N$ times, and calculate the percent of "hits" vs. "misses" -- this result is the view factor.
 
-There are some additional constraints that aren't mentioned in these steps--for example, physically an emissive ray wouldn't emit back into itself, so additional considerations need to be taken for what is a valid range of angles to project the ray from.  
+There are some additional constraints that aren't mentioned in these steps--for example, physically an emissive ray wouldn't emit back into itself, so additional considerations need to be taken for what is a valid range of angles to project the ray from.
+
+In addition, the radiative emissions (from our assumed black body radiator) must follow Lambert's Cosine Law, meaning the emitted intensity is strongest perpendicular to the surface (angle 0°) and drops off as the cosine of the angle (θ) from the surface normal, resulting in the same apparent brightness (radiance) from any viewing angle because the apparent area also shrinks by cos(θ):
+
+![image](./images/Lambert_Cosine_Law_1.png)
 
 As the project progresses, the full solution approach will be documented.
 

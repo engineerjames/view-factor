@@ -196,21 +196,19 @@ impl EmissiveShape {
                 // Use the outward-facing normal for this shape
                 let source_shape_normal = &line_state.normals[self.outward_normal_index];
 
-                // The ray we fire should be the same angle as the normal +/- 90 degrees
-                let angle_deg =
+                // Get the base angle of the normal
+                let normal_angle_deg =
                     FloatType::atan2(source_shape_normal.y, source_shape_normal.x).to_degrees();
-                let min_angle_deg = angle_deg - 90.0;
-                let max_angle_deg = angle_deg + 90.0;
 
-                let angle_of_ray = std_rng.gen_range(min_angle_deg..max_angle_deg);
+                // Sample angle with cosine-weighted distribution (Lambert's Cosine Law)
+                // For diffuse emission, the probability distribution is proportional to cos(θ)
+                // Using inverse CDF: θ = arcsin(2u - 1) where u ~ Uniform(0,1)
+                let u = std_rng.gen_range(0.0..1.0);
+                let theta_radians = FloatType::asin(2.0 * u - 1.0); // Range: [-π/2, π/2]
+                
+                let angle_of_ray = normal_angle_deg + theta_radians.to_degrees();
                 Ray::new(new_point, angle_of_ray)
             }
-        }
-    }
-
-    pub fn get_normals(&self) -> &[Point2D; 2] {
-        match &self.shape_type {
-            ShapeType::Line2D(line_state) => &line_state.normals,
         }
     }
 }

@@ -5,7 +5,7 @@ use simulation::view_factor_sim::{EmissiveShape, Line2DState, Point2D, ShapeType
 // Just to going to start by hard-coding everything
 fn main() {
     // Eventually take in arguments from the command line or JSON file?
-    let mut sim: Simulation = Simulation::new(500000, Some(2342));
+    let mut sim: Simulation = Simulation::new(50000, Some(2342));
 
     // Create four points that represents our two lines
     // We'll set them up to be unequal normal adjacent strips
