@@ -143,6 +143,7 @@ impl Ray {
 pub struct EmissiveShape {
     pub name: String,
     pub shape_type: ShapeType,
+    outward_normal_index: usize, // 0 or 1, indicates which normal in the array is outward-facing
 }
 
 impl EmissiveShape {
@@ -151,10 +152,30 @@ impl EmissiveShape {
         EmissiveShape {
             name: name,
             shape_type: shape_type,
+            outward_normal_index: 0, // Will be set by calculate_inward_normals
         }
     }
 
-    pub fn get_emissive_ray(&self, std_rng: &mut StdRng, target_normal_map: &Point2D) -> Ray {
+    fn set_inward_normal(&mut self, center: &Point2D) {
+        match &self.shape_type {
+            ShapeType::Line2D(line_state) => {
+                // Vector from line midpoint to center
+                let to_center = Point2D {
+                    x: center.x - line_state.midpoint.x,
+                    y: center.y - line_state.midpoint.y,
+                };
+
+                // Dot product with each normal to see which points toward center
+                let dot_0 = line_state.normals[0].x * to_center.x + line_state.normals[0].y * to_center.y;
+                let dot_1 = line_state.normals[1].x * to_center.x + line_state.normals[1].y * to_center.y;
+
+                // The normal with positive dot product points toward the center
+                self.outward_normal_index = if dot_0 > dot_1 { 0 } else { 1 };
+            }
+        }
+    }
+
+    pub fn get_emissive_ray(&self, std_rng: &mut StdRng) -> Ray {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => {
                 let percent_along = std_rng.gen_range(0.0..1.0);
@@ -172,7 +193,8 @@ impl EmissiveShape {
                     std::process::exit(-1);
                 }
 
-                let source_shape_normal = target_normal_map;
+                // Use the outward-facing normal for this shape
+                let source_shape_normal = &line_state.normals[self.outward_normal_index];
 
                 // The ray we fire should be the same angle as the normal +/- 90 degrees
                 let angle_deg =
@@ -223,7 +245,38 @@ impl Simulation {
     }
 
     pub fn configure(&mut self) {
-        // TODO: Build up a list of all possible shapes that a given emitter can emit to
+        // Calculate the center of all shapes
+        let center = self.calculate_center();
+        
+        // Set each shape's inward-facing normal (toward the center)
+        for shape in &mut self.emitting_shapes {
+            shape.set_inward_normal(&center);
+        }
+    }
+
+    fn calculate_center(&self) -> Point2D {
+        let mut sum_x = 0.0;
+        let mut sum_y = 0.0;
+        let mut count = 0;
+
+        for shape in &self.emitting_shapes {
+            match &shape.shape_type {
+                ShapeType::Line2D(line_state) => {
+                    sum_x += line_state.midpoint.x;
+                    sum_y += line_state.midpoint.y;
+                    count += 1;
+                }
+            }
+        }
+
+        if count > 0 {
+            Point2D {
+                x: sum_x / (count as FloatType),
+                y: sum_y / (count as FloatType),
+            }
+        } else {
+            Point2D { x: 0.0, y: 0.0 }
+        }
     }
 
     pub fn run(&mut self) -> Vec<ViewFactorResult> {
@@ -234,23 +287,19 @@ impl Simulation {
 
             // Track hits per target shape for this emitting shape
             let mut hit_counts: HashMap<String, u64> = HashMap::new();
-            let mut total_emissions = 0u64;
 
-            for normal in emitting_shape.get_normals() {
-                for _ in 0..self.number_of_emissions {
-                    let ray = emitting_shape.get_emissive_ray(&mut self.rng, normal);
-                    
-                    if let Some(hit_shape) = does_ray_hit(&ray, &self.emitting_shapes, emitting_shape) {
-                        *hit_counts.entry(hit_shape.name.clone()).or_insert(0) += 1;
-                    }
-                    
-                    total_emissions += 1;
+            // Emit rays only from the outward-facing normal
+            for _ in 0..self.number_of_emissions {
+                let ray = emitting_shape.get_emissive_ray(&mut self.rng);
+                
+                if let Some(hit_shape) = does_ray_hit(&ray, &self.emitting_shapes, emitting_shape) {
+                    *hit_counts.entry(hit_shape.name.clone()).or_insert(0) += 1;
                 }
             }
 
             // Calculate view factors from this shape to each target shape
             for (target_name, hit_count) in hit_counts.iter() {
-                let view_factor = (*hit_count as FloatType) / (total_emissions as FloatType);
+                let view_factor = (*hit_count as FloatType) / (self.number_of_emissions as FloatType);
                 
                 println!(
                     "View Factor F_{{{} -> {}}} = {:.6}",
