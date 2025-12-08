@@ -1,10 +1,13 @@
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use std::collections::HashMap;
 
 type FloatType = f32;
 
+const EPSILON: FloatType = FloatType::EPSILON * 4.0;
+
 pub fn is_point_on_line(p: &Point2D, line: &Line2DState) -> bool {
     let result;
-    if line.slope != 0.0 {
+    if FloatType::abs(line.slope) > EPSILON {
         result = p.y - (line.slope * p.x + line.y_intercept);
     } else {
         // If we have a straight vertical or horizontal line, we just need
@@ -14,7 +17,7 @@ pub fn is_point_on_line(p: &Point2D, line: &Line2DState) -> bool {
             || (p.y == line.points[0].y && p.y == line.points[1].y);
     }
 
-    FloatType::abs(result) <= (FloatType::EPSILON * 4.0)
+    FloatType::abs(result) <= EPSILON
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -28,7 +31,7 @@ impl Point2D {
         Point2D { x: x1, y: y1 }
     }
 
-    pub fn magnitude(self: &Self) -> FloatType {
+    pub fn magnitude(&self) -> FloatType {
         FloatType::sqrt((self.x * self.x) + (self.y * self.y))
     }
 }
@@ -37,7 +40,7 @@ impl std::ops::Add for Point2D {
     type Output = Point2D;
 
     fn add(self, rhs: Self) -> Self::Output {
-        return Point2D::new((self.x + rhs.x, self.y + rhs.y));
+        Point2D::new((self.x + rhs.x, self.y + rhs.y))
     }
 }
 
@@ -67,7 +70,7 @@ impl std::ops::Sub for Point2D {
     type Output = Point2D;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        return Point2D::new((self.x - rhs.x, self.y - rhs.y));
+        Point2D::new((self.x - rhs.x, self.y - rhs.y))
     }
 }
 
@@ -99,13 +102,13 @@ impl Line2DState {
 
         // TODO: Should the slope be an Option<f32>? Straight up and down lines?
         let mut slope = 0.0;
-        if FloatType::abs(dx) >= (FloatType::EPSILON * 4.0) {
+        if FloatType::abs(dx) >= EPSILON {
             slope = dy / dx;
         }
 
         let mut y_intercept = 0.0;
 
-        if slope != 0.0 {
+        if FloatType::abs(slope) > EPSILON {
             y_intercept = point1.y - slope * point1.x;
         }
 
@@ -151,7 +154,7 @@ impl EmissiveShape {
         }
     }
 
-    pub fn get_emissive_ray(self: &Self, std_rng: &mut StdRng, target_normal_map: &Point2D) -> Ray {
+    pub fn get_emissive_ray(&self, std_rng: &mut StdRng, target_normal_map: &Point2D) -> Ray {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => {
                 let percent_along = std_rng.gen_range(0.0..1.0);
@@ -183,11 +186,18 @@ impl EmissiveShape {
         }
     }
 
-    pub fn get_normals(self: &Self) -> &[Point2D; 2] {
+    pub fn get_normals(&self) -> &[Point2D; 2] {
         match &self.shape_type {
             ShapeType::Line2D(line_state) => &line_state.normals,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ViewFactorResult {
+    pub from_shape: String,
+    pub to_shape: String,
+    pub view_factor: FloatType,
 }
 
 pub struct Simulation {
@@ -208,36 +218,54 @@ impl Simulation {
         }
     }
 
-    pub fn add_shape(self: &mut Self, shape: Box<EmissiveShape>) {
+    pub fn add_shape(&mut self, shape: Box<EmissiveShape>) {
         self.emitting_shapes.push(shape);
     }
 
-    pub fn configure(self: &mut Self) {
+    pub fn configure(&mut self) {
         // TODO: Build up a list of all possible shapes that a given emitter can emit to
     }
 
-    pub fn run(self: &mut Self) {
+    pub fn run(&mut self) -> Vec<ViewFactorResult> {
+        let mut results = Vec::new();
+        
         for emitting_shape in &self.emitting_shapes {
             println!("Processing emissions for shape {}", emitting_shape.name);
 
+            // Track hits per target shape for this emitting shape
+            let mut hit_counts: HashMap<String, u64> = HashMap::new();
+            let mut total_emissions = 0u64;
+
             for normal in emitting_shape.get_normals() {
-                let mut hit_count: u64 = 0;
-
                 for _ in 0..self.number_of_emissions {
-                    let s = emitting_shape.get_emissive_ray(&mut self.rng, normal);
-                    let does_hit = does_ray_hit(&s, &self.emitting_shapes, emitting_shape);
-
-                    if does_hit.is_some() {
-                        hit_count += 1;
+                    let ray = emitting_shape.get_emissive_ray(&mut self.rng, normal);
+                    
+                    if let Some(hit_shape) = does_ray_hit(&ray, &self.emitting_shapes, emitting_shape) {
+                        *hit_counts.entry(hit_shape.name.clone()).or_insert(0) += 1;
                     }
+                    
+                    total_emissions += 1;
                 }
+            }
 
+            // Calculate view factors from this shape to each target shape
+            for (target_name, hit_count) in hit_counts.iter() {
+                let view_factor = (*hit_count as FloatType) / (total_emissions as FloatType);
+                
                 println!(
-                    "Hit Ratio = {}",
-                    (hit_count as FloatType) / (self.number_of_emissions as FloatType)
+                    "View Factor F_{{{} -> {}}} = {:.6}",
+                    emitting_shape.name, target_name, view_factor
                 );
+                
+                results.push(ViewFactorResult {
+                    from_shape: emitting_shape.name.clone(),
+                    to_shape: target_name.clone(),
+                    view_factor,
+                });
             }
         }
+        
+        results
     }
 }
 
@@ -266,12 +294,14 @@ fn does_ray_hit<'a>(
                 let x2_minus_x1 = line_state.points[1].x - line_state.points[0].x;
                 let y2_minus_y1 = line_state.points[1].y - line_state.points[0].y;
 
-                if dy * x2_minus_x1 != dx * y2_minus_y1 {
+                // Check if lines are not parallel using epsilon comparison
+                let cross_product = dy * x2_minus_x1 - dx * y2_minus_y1;
+                if FloatType::abs(cross_product) > EPSILON {
                     let d = (dx * y2_minus_y1) - (dy * x2_minus_x1);
                     let y_minus_y1: f32 = ray.point.y - line_state.points[0].y;
                     let x_minus_x1 = ray.point.x - line_state.points[0].x;
 
-                    if FloatType::abs(d) != 0.0 {
+                    if FloatType::abs(d) > EPSILON {
                         let r = (((y_minus_y1) * (x2_minus_x1)) - (x_minus_x1) * (y2_minus_y1)) / d;
                         let s = (((y_minus_y1) * dx) - (x_minus_x1 * dy)) / d;
 

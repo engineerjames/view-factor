@@ -5,7 +5,7 @@ use simulation::view_factor_sim::{EmissiveShape, Line2DState, Point2D, ShapeType
 // Just to going to start by hard-coding everything
 fn main() {
     // Eventually take in arguments from the command line or JSON file?
-    let mut sim: Simulation = Simulation::new(500000, Some(2342));
+    let mut sim: Simulation = Simulation::new(5000000, Some(2342));
 
     // Create four points that represents our two lines
     let p1 = Point2D::new((1.0, 2.0));
@@ -26,5 +26,13 @@ fn main() {
 
     sim.configure();
 
-    sim.run();
+    let results = sim.run();
+    
+    println!("\n=== View Factor Results ===");
+    for result in results {
+        println!(
+            "F_{{{} -> {}}} = {:.6}",
+            result.from_shape, result.to_shape, result.view_factor
+        );
+    }
 }
