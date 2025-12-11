@@ -4,6 +4,7 @@ pub fn unequal_normal_adjacent_strips(height: f64, width: f64) -> f64 {
     (1.0 + h - f64::sqrt(1.0 + (h * h))) / 2.0
 }
 
+#[allow(dead_code)]
 pub fn parallel_strips(separation: f64, width_1: f64, width_2: f64) -> f64 {
     let w1 = width_1 / separation;
     let w2 = width_2 / separation;
