@@ -119,6 +119,52 @@ pub fn is_point_on_line(p: &Point2D, line: &Line2DState) -> bool {
     FloatType::abs(result) <= EPSILON
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn point_magnitude_and_ops() {
+        let p = Point2D::new((3.0, 4.0));
+        let mag = p.magnitude();
+        assert!((mag - 5.0).abs() < 1e-6);
+
+        let a = Point2D::new((1.0, 2.0));
+        let b = Point2D::new((3.0, 4.0));
+        let c = a + b;
+        assert_eq!(c, Point2D::new((4.0, 6.0)));
+        let d = &Point2D::new((5.0, 6.0)) - &Point2D::new((2.0, 3.0));
+        assert_eq!(d, Point2D::new((3.0, 3.0)));
+    }
+
+    #[test]
+    fn line_state_points_and_midpoint() {
+        let new_line = Line2DState::new(Point2D { x: 1.0, y: 1.0 }, Point2D { x: 2.0, y: 2.0 });
+        assert_eq!(new_line.points[0].x, 1.0);
+        assert_eq!(new_line.points[0].y, 1.0);
+        assert_eq!(new_line.points[1].x, 2.0);
+        assert_eq!(new_line.points[1].y, 2.0);
+        assert_eq!(new_line.midpoint, Point2D { x: 1.5, y: 1.5 });
+    }
+
+    #[test]
+    fn straight_line_has_zero_slope() {
+        let new_line = Line2DState::new(Point2D::new((-1.0, 2.0)), Point2D::new((-1.0, 4.0)));
+        // In this implementation slope is 0.0 for nearly-vertical lines (dx small)
+        assert_eq!(new_line.slope, 0.0);
+        assert_eq!(FloatType::atan(new_line.slope).to_degrees(), 0.0);
+    }
+
+    #[test]
+    fn is_point_on_line_checks() {
+        let horiz = Line2DState::new(Point2D::new((0.0, 0.0)), Point2D::new((2.0, 0.0)));
+        let on = Point2D::new((1.0, 0.0));
+        let off = Point2D::new((1.0, 1.0));
+        assert!(is_point_on_line(&on, &horiz));
+        assert!(!is_point_on_line(&off, &horiz));
+    }
+}
+
 pub enum ShapeType {
     Line2D(Line2DState), // Just one shape for now
 }
