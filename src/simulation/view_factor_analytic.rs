@@ -17,11 +17,10 @@ pub fn parallel_strips(separation: f64, width_1: f64, width_2: f64) -> f64 {
 }
 
 mod tests {
-    #[allow(unused_imports)]
-    use super::*;
-
     #[test]
     fn check_unequal_normal_adjacent_strips_calculation() {
+        use super::unequal_normal_adjacent_strips;
+
         let expected_result = 0.29289321881345243;
         let actual_result = unequal_normal_adjacent_strips(1.0, 1.0);
 
@@ -30,6 +29,8 @@ mod tests {
 
     #[test]
     fn check_parallel_strips_calculation() {
+        use super::parallel_strips;
+        
         let expected_result = 0.41421356237309515;
         let actual_result = parallel_strips(1.0, 1.0, 1.0);
         assert_eq!(expected_result, actual_result);
