@@ -158,11 +158,12 @@ fn does_ray_hit<'a>(
 }
 
 mod tests {
-    use crate::simulation::geometry::{Point2D, Line2DState, FloatType};
-    use super::{EmissiveShape, ShapeType};
-
+    
     #[test]
     fn line_state_check() {
+        use crate::Line2DState;
+        use crate::Point2D;
+
         let new_point = Line2DState::new(Point2D { x: 1.0, y: 1.0 }, Point2D { x: 2.0, y: 2.0 });
 
         assert_eq!(new_point.points[0].x, 1.0);
@@ -173,6 +174,11 @@ mod tests {
 
     #[test]
     fn line_state_check_midpoint() {
+        use crate::Line2DState;
+        use crate::Point2D;
+        use crate::ShapeType;
+        use crate::EmissiveShape;
+
         let new_line = Line2DState::new(Point2D { x: 1.0, y: 1.0 }, Point2D { x: 2.0, y: 2.0 });
 
         assert_eq!(new_line.midpoint, Point2D { x: 1.5, y: 1.5 });
@@ -185,6 +191,10 @@ mod tests {
 
     #[test]
     fn straight_line_has_zero_slope() {
+        use crate::Line2DState;
+        use crate::Point2D;
+        use crate::simulation::view_factor_sim::FloatType;
+
         let new_line = Line2DState::new(Point2D::new((-1.0, 2.0)), Point2D::new((-1.0, 4.0)));
 
         assert_eq!(new_line.slope, 0.0);
