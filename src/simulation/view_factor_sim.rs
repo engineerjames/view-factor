@@ -223,7 +223,6 @@ pub struct ViewFactorResult {
 pub struct Simulation {
     pub emitting_shapes: Vec<Box<EmissiveShape>>,
     pub number_of_emissions: u64,
-    pub random_seed: u64,
     rng: StdRng,
     // TODO: Logger
 }
@@ -233,7 +232,6 @@ impl Simulation {
         Simulation {
             emitting_shapes: Vec::new(),
             number_of_emissions: num_emissions,
-            random_seed: random_seed.unwrap_or_default(),
             rng: StdRng::seed_from_u64(random_seed.unwrap_or_default()),
         }
     }
