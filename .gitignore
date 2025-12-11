@@ -20,3 +20,6 @@ Cargo.lock
 
 # Ignore virtual python environment
 .venv/
+
+dist/**
+*.log
