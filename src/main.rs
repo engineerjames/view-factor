@@ -1,6 +1,7 @@
 mod simulation;
 
-use simulation::view_factor_sim::{EmissiveShape, Line2DState, Point2D, ShapeType, Simulation};
+use simulation::geometry::{Line2DState, Point2D, EmissiveShape, ShapeType};
+use simulation::view_factor_sim::Simulation;
 
 // Just to going to start by hard-coding everything
 fn main() {
